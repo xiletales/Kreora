@@ -156,24 +156,33 @@ export default function SignupPage() {
             {/* Grade + Class */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">
-                  Grade Taught
-                </label>
-                <input
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Grade Taught</label>
+                <select
                   className="kreora-input"
-                  placeholder="e.g. X, XI, XII"
                   value={form.grade}
                   onChange={e => update('grade', e.target.value)}
-                />
+                >
+                  <option value="">Select grade</option>
+                  <option value="X">X</option>
+                  <option value="XI">XI</option>
+                  <option value="XII">XII</option>
+                  <option value="X, XI, XII">All grades</option>
+                </select>
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">Class</label>
-                <input
+                <select
                   className="kreora-input"
-                  placeholder="e.g. DKV 1"
                   value={form.className}
                   onChange={e => update('className', e.target.value)}
-                />
+                >
+                  <option value="">Select class</option>
+                  <option value="DKV 1">DKV 1</option>
+                  <option value="DKV 2">DKV 2</option>
+                  <option value="DKV 3">DKV 3</option>
+                  <option value="MM 1">MM 1</option>
+                  <option value="MM 2">MM 2</option>
+                </select>
               </div>
             </div>
 

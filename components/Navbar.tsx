@@ -4,12 +4,13 @@ import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 import { useState, useEffect } from 'react'
-import { Menu, X, Search, Palette, ChevronDown } from 'lucide-react'
+import { Menu, X, Search, ChevronDown } from 'lucide-react'
 
 const NAV = [
   { href: '/', label: 'Home' },
   { href: '/gallery', label: 'Gallery' },
   { href: '/portfolio', label: 'Portfolio' },
+  { href: '/about', label: 'About' },
 ]
 
 export default function Navbar() {
@@ -38,14 +39,6 @@ export default function Navbar() {
 
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 shrink-0 group mr-2">
-          <motion.div
-            className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md shrink-0"
-            style={{ background: 'linear-gradient(135deg, #337357 0%, #285e46 100%)' }}
-            whileHover={{ scale: 1.08, rotate: -5 }}
-            transition={{ type: 'spring', stiffness: 400 }}
-          >
-            <Palette size={14} className="text-white" />
-          </motion.div>
           <span className="font-display text-[1.2rem] font-bold text-gray-900 tracking-tight">Kreora</span>
         </Link>
 

@@ -146,9 +146,9 @@ function DashboardInner() {
 
   const isTeacher = profile?.role === 'teacher'
   const teacherTabs = ['assignments', 'grade', 'feedback', 'monitoring', 'curation', 'addstudents', 'editprofile']
-  const studentTabs = ['artworks', 'showcase', 'progress', 'badges', 'editprofile']
+  const studentTabs = ['assignment', 'showcase', 'progress', 'badges', 'myprofile']
   const validTabs = isTeacher ? teacherTabs : studentTabs
-  const defaultTab = isTeacher ? 'assignments' : 'artworks'
+  const defaultTab = isTeacher ? 'assignments' : 'assignment'
 
   const tabParam = searchParams.get('tab') || ''
   const activeTab = validTabs.includes(tabParam) ? tabParam : defaultTab
@@ -183,6 +183,8 @@ function DashboardInner() {
   const [artworks, setArtworks] = useState<Artwork[]>(DEMO_ARTWORKS)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [artLoading, setArtLoading] = useState(true)
+  const [feedbackList, setFeedbackList] = useState<Array<{ id: string; content: string; artwork_title: string; teacher_name: string; created_at: string }>>([])
+  const [editingProfile, setEditingProfile] = useState(false)
 
   useEffect(() => {
     if (loading) return
@@ -202,11 +204,32 @@ function DashboardInner() {
         if (data && data.length > 0) setArtworks(data as Artwork[])
         setArtLoading(false)
       }, () => setArtLoading(false))
+
+    // Load feedback (teacher comments on student's artworks)
+    supabase
+      .from('comments')
+      .select('id, content, created_at, artworks(title), profiles(first_name, last_name, role)')
+      .eq('artworks.creator_id', user.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (data) {
+          const filtered = (data as any[])
+            .filter((c: any) => c.profiles?.role === 'teacher')
+            .map((c: any) => ({
+              id: c.id,
+              content: c.content,
+              artwork_title: c.artworks?.title || '',
+              teacher_name: c.profiles ? `${c.profiles.first_name} ${c.profiles.last_name}`.trim() : 'Teacher',
+              created_at: c.created_at,
+            }))
+          setFeedbackList(filtered)
+        }
+      }, () => {})
   }, [user, isTeacher])
 
   // Pre-fill edit profile form when tab is active
   useEffect(() => {
-    if (activeTab === 'editprofile' && profile && !profileLoaded) {
+    if ((activeTab === 'editprofile' || activeTab === 'myprofile') && profile && !profileLoaded) {
       setEditForm({
         first_name: profile.first_name || '',
         last_name: profile.last_name || '',
@@ -324,7 +347,8 @@ function DashboardInner() {
     assignments: 'Assignments', grade: 'Grade', feedback: 'Feedback',
     monitoring: 'Monitoring', curation: 'Curation', addstudents: 'Add Students',
     editprofile: 'Edit Profile',
-    artworks: 'Artworks', showcase: 'Showcase', progress: 'Progress', badges: 'Badges',
+    assignment: 'Assignment', showcase: 'Showcase', progress: 'Progress', badges: 'Badges',
+    myprofile: 'My Profile',
   }
 
   return (
@@ -813,9 +837,9 @@ function DashboardInner() {
 
           {/* ════════════════ STUDENT TABS ════════════════ */}
 
-          {/* ARTWORKS */}
-          {!isTeacher && activeTab === 'artworks' && (
-            <motion.div key="artworks" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+          {/* ASSIGNMENT (student) */}
+          {!isTeacher && activeTab === 'assignment' && (
+            <motion.div key="assignment" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
               {artLoading ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                   {[...Array(8)].map((_, i) => <div key={i} className="skeleton rounded-xl aspect-square" />)}
@@ -829,7 +853,7 @@ function DashboardInner() {
                           <div className="relative aspect-square">
                             <img src={art.image_url || ''} alt={art.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                             {i === 0 && (
-                              <div className="absolute top-2 left-2 w-7 h-7 bg-rose-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow">1</div>
+                              <div className="absolute top-2 left-2 w-7 h-7 bg-brand-500 text-white rounded-full flex items-center justify-center text-xs font-bold shadow">1</div>
                             )}
                           </div>
                           <div className="p-2.5">
@@ -897,9 +921,9 @@ function DashboardInner() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
                     <p className="text-sm text-gray-500 mb-2">Published</p>
-                    <p className="font-display text-3xl font-bold text-rose-600">{published.length}</p>
-                    <div className="mt-2 h-2 bg-rose-100 rounded-full">
-                      <div className="h-2 bg-rose-500 rounded-full" style={{ width: `${artworks.length ? (published.length / artworks.length) * 100 : 0}%` }} />
+                    <p className="font-display text-3xl font-bold text-brand-500">{published.length}</p>
+                    <div className="mt-2 h-2 bg-brand-100 rounded-full">
+                      <div className="h-2 bg-brand-500 rounded-full" style={{ width: `${artworks.length ? (published.length / artworks.length) * 100 : 0}%` }} />
                     </div>
                   </div>
                   <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
@@ -913,28 +937,11 @@ function DashboardInner() {
               </div>
 
               <div>
-                <h3 className="font-bold text-gray-700 mb-3 text-sm uppercase tracking-wide">Competency Skills</h3>
-                <div className="space-y-2">
-                  {[{ name: 'Oil painting', date: '9-02-2026' }, { name: 'Poster Designing', date: '9-02-2026' }, { name: 'Digital Art', date: '9-02-2026' }].map(s => (
-                    <div key={s.name} className="bg-white rounded-xl p-3.5 flex items-center gap-3 border border-gray-100">
-                      <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center shrink-0">
-                          <Award size={18} className="text-rose-300" />
-                        </div>
-                      <div>
-                        <p className="font-semibold text-gray-800 text-sm">{s.name}</p>
-                        <p className="text-xs text-gray-400">Date achieved: {s.date}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
                 <h3 className="font-bold text-gray-700 mb-3 text-sm uppercase tracking-wide">Task Checklist</h3>
                 <div className="space-y-2">
                   {DEMO_TASKS.map(t => (
                     <div key={t.id} className="bg-white rounded-xl p-3.5 flex items-center gap-3 border border-gray-100">
-                      {t.done ? <CheckSquare size={18} className="text-rose-500 shrink-0" /> : <Square size={18} className="text-gray-300 shrink-0" />}
+                      {t.done ? <CheckSquare size={18} className="text-brand-500 shrink-0" /> : <Square size={18} className="text-gray-300 shrink-0" />}
                       <div className="flex-1">
                         <p className="font-semibold text-gray-800 text-sm">{t.title}</p>
                         <p className="text-xs text-gray-400">Deadline: {t.deadline} · <span className="text-rose-500">{t.status}</span></p>
@@ -942,6 +949,41 @@ function DashboardInner() {
                     </div>
                   ))}
                 </div>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-700 mb-3 text-sm uppercase tracking-wide">Feedback from Teacher</h3>
+                {feedbackList.length === 0 ? (
+                  <div className="bg-white rounded-xl border border-gray-100 p-8 text-center">
+                    <p className="text-gray-400 text-sm">No feedback yet. Keep creating!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {feedbackList.map(fb => (
+                      <div key={fb.id} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center shrink-0">
+                            <Award size={14} className="text-brand-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-semibold text-brand-600">{fb.teacher_name}</span>
+                              {fb.artwork_title && (
+                                <span className="text-xs text-gray-400">on &ldquo;{fb.artwork_title}&rdquo;</span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-700 leading-relaxed">{fb.content}</p>
+                            {fb.created_at && (
+                              <p className="text-[11px] text-gray-400 mt-1">
+                                {new Date(fb.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
@@ -971,12 +1013,12 @@ function DashboardInner() {
             </motion.div>
           )}
 
-          {/* ════════════════ SHARED: EDIT PROFILE ════════════════ */}
-          {activeTab === 'editprofile' && (
+          {/* ════════════════ TEACHER: EDIT PROFILE ════════════════ */}
+          {isTeacher && activeTab === 'editprofile' && (
             <motion.div key="editprofile" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                 <div className="flex items-center gap-2 mb-6">
-                  <Edit2 size={18} className="text-rose-500" />
+                  <Edit2 size={18} className="text-brand-500" />
                   <h3 className="font-bold text-gray-900">Edit Profile</h3>
                 </div>
 
@@ -996,18 +1038,9 @@ function DashboardInner() {
                     <input className="kreora-input" value={editForm.username}
                       onChange={e => setEditForm(f => ({ ...f, username: e.target.value }))} />
                   </div>
-
-                  {!isTeacher && (
-                    <div>
-                      <label className="text-xs font-medium text-gray-600 mb-1 block">NISN</label>
-                      <input className="kreora-input font-mono" value={editForm.nisn}
-                        onChange={e => setEditForm(f => ({ ...f, nisn: e.target.value }))} />
-                    </div>
-                  )}
-
                   <div>
                     <label className="text-xs font-medium text-gray-600 mb-1 block">Grade</label>
-                    <input className="kreora-input" placeholder={isTeacher ? 'e.g. X, XI, XII' : 'e.g. XI'}
+                    <input className="kreora-input" placeholder="e.g. X, XI, XII"
                       value={editForm.grade} onChange={e => setEditForm(f => ({ ...f, grade: e.target.value }))} />
                   </div>
                   <div>
@@ -1015,45 +1048,165 @@ function DashboardInner() {
                     <input className="kreora-input" placeholder="e.g. DKV 1"
                       value={editForm.className} onChange={e => setEditForm(f => ({ ...f, className: e.target.value }))} />
                   </div>
-
-                  {isTeacher && (
-                    <>
-                      <div>
-                        <label className="text-xs font-medium text-gray-600 mb-1 block">Department</label>
-                        <input className="kreora-input" value={editForm.department}
-                          onChange={e => setEditForm(f => ({ ...f, department: e.target.value }))} />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-gray-600 mb-1 block">Subject / Specialization</label>
-                        <input className="kreora-input" value={editForm.subject}
-                          onChange={e => setEditForm(f => ({ ...f, subject: e.target.value }))} />
-                      </div>
-                    </>
-                  )}
-
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-1 block">Department</label>
+                    <input className="kreora-input" value={editForm.department}
+                      onChange={e => setEditForm(f => ({ ...f, department: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-1 block">Subject / Specialization</label>
+                    <input className="kreora-input" value={editForm.subject}
+                      onChange={e => setEditForm(f => ({ ...f, subject: e.target.value }))} />
+                  </div>
                   <div className="sm:col-span-2">
                     <label className="text-xs font-medium text-gray-600 mb-1 block">Bio</label>
-                    <textarea
-                      className="kreora-input resize-none"
-                      rows={3}
-                      placeholder="Tell something about yourself..."
-                      value={editForm.bio}
-                      onChange={e => setEditForm(f => ({ ...f, bio: e.target.value }))}
-                    />
+                    <textarea className="kreora-input resize-none" rows={3} placeholder="Tell something about yourself..."
+                      value={editForm.bio} onChange={e => setEditForm(f => ({ ...f, bio: e.target.value }))} />
                   </div>
                 </div>
 
                 <div className="flex justify-end mt-6">
-                  <motion.button
-                    whileTap={{ scale: 0.97 }}
-                    onClick={handleSaveProfile}
-                    disabled={savingProfile}
-                    className="btn-primary disabled:opacity-60"
-                  >
+                  <motion.button whileTap={{ scale: 0.97 }} onClick={handleSaveProfile} disabled={savingProfile} className="btn-primary disabled:opacity-60">
                     {savingProfile ? 'Saving...' : 'Save Profile'}
                   </motion.button>
                 </div>
               </div>
+            </motion.div>
+          )}
+
+          {/* ════════════════ STUDENT: MY PROFILE ════════════════ */}
+          {!isTeacher && activeTab === 'myprofile' && (
+            <motion.div key="myprofile" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+              <AnimatePresence mode="wait">
+                {!editingProfile ? (
+                  <motion.div key="view" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    {/* Profile Card */}
+                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-4">
+                      <div className="h-20 w-full" style={{ background: 'linear-gradient(to bottom, #FBBFC4, #FDD5D9)' }} />
+                      <div className="px-6 pb-6">
+                        <div className="flex items-end justify-between -mt-10 mb-4">
+                          <div className="w-20 h-20 rounded-full border-4 border-white bg-gray-200 flex items-center justify-center text-2xl font-bold text-white shadow-md overflow-hidden"
+                            style={{ background: 'linear-gradient(135deg, #337357, #285e46)' }}>
+                            {(profile?.first_name?.[0] || 'S').toUpperCase()}
+                          </div>
+                          <button
+                            onClick={() => setEditingProfile(true)}
+                            className="flex items-center gap-1.5 text-sm font-semibold text-brand-600 border border-brand-200 bg-brand-50 px-4 py-2 rounded-lg hover:bg-brand-100 transition-colors"
+                          >
+                            <Edit2 size={13} /> Edit Profile
+                          </button>
+                        </div>
+                        <h2 className="font-display text-xl font-bold text-gray-900">
+                          {profile?.first_name} {profile?.last_name}
+                        </h2>
+                        <p className="text-sm text-gray-500 mt-0.5">@{profile?.username || '—'}</p>
+                        {profile?.bio && <p className="text-sm text-gray-600 mt-3 leading-relaxed">{profile.bio}</p>}
+                      </div>
+                    </div>
+
+                    {/* Detail rows */}
+                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm divide-y divide-gray-100">
+                      {[
+                        { label: 'Grade', value: profile?.grade },
+                        { label: 'Class', value: profile?.class },
+                        { label: 'NISN', value: profile?.nisn, mono: true },
+                        { label: 'Email', value: profile?.email },
+                      ].map(row => (
+                        <div key={row.label} className="flex items-center justify-between px-6 py-3.5">
+                          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide w-24">{row.label}</span>
+                          <span className={`text-sm text-gray-800 font-medium flex-1 text-right ${row.mono ? 'font-mono' : ''}`}>
+                            {row.value || <span className="text-gray-300">—</span>}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-3 gap-3 mt-4">
+                      <div className="bg-white rounded-xl border border-gray-100 p-4 text-center">
+                        <p className="font-display text-2xl font-bold text-brand-500">{artworks.length}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Artworks</p>
+                      </div>
+                      <div className="bg-white rounded-xl border border-gray-100 p-4 text-center">
+                        <p className="font-display text-2xl font-bold text-brand-500">{published.length}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Published</p>
+                      </div>
+                      <div className="bg-white rounded-xl border border-gray-100 p-4 text-center">
+                        <p className="font-display text-2xl font-bold text-rose-400">{artworks.reduce((s, a) => s + (a.likes || 0), 0)}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Likes</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div key="edit" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                      <div className="flex items-center gap-2 mb-6">
+                        <button onClick={() => setEditingProfile(false)} className="text-gray-400 hover:text-gray-600 mr-1">
+                          <ArrowLeft size={16} />
+                        </button>
+                        <Edit2 size={18} className="text-brand-500" />
+                        <h3 className="font-bold text-gray-900">Edit Profile</h3>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs font-medium text-gray-600 mb-1 block">First Name</label>
+                          <input className="kreora-input" value={editForm.first_name}
+                            onChange={e => setEditForm(f => ({ ...f, first_name: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-gray-600 mb-1 block">Last Name</label>
+                          <input className="kreora-input" value={editForm.last_name}
+                            onChange={e => setEditForm(f => ({ ...f, last_name: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-gray-600 mb-1 block">Username</label>
+                          <input className="kreora-input" value={editForm.username}
+                            onChange={e => setEditForm(f => ({ ...f, username: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-gray-600 mb-1 block">NISN</label>
+                          <input className="kreora-input font-mono" value={editForm.nisn}
+                            onChange={e => setEditForm(f => ({ ...f, nisn: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-gray-600 mb-1 block">Grade</label>
+                          <select className="kreora-input" value={editForm.grade} onChange={e => setEditForm(f => ({ ...f, grade: e.target.value }))}>
+                            <option value="">Select grade</option>
+                            <option value="X">X</option>
+                            <option value="XI">XI</option>
+                            <option value="XII">XII</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-gray-600 mb-1 block">Class</label>
+                          <select className="kreora-input" value={editForm.className} onChange={e => setEditForm(f => ({ ...f, className: e.target.value }))}>
+                            <option value="">Select class</option>
+                            <option value="DKV 1">DKV 1</option>
+                            <option value="DKV 2">DKV 2</option>
+                            <option value="DKV 3">DKV 3</option>
+                            <option value="MM 1">MM 1</option>
+                            <option value="MM 2">MM 2</option>
+                          </select>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="text-xs font-medium text-gray-600 mb-1 block">Bio</label>
+                          <textarea className="kreora-input resize-none" rows={3} placeholder="Tell something about yourself..."
+                            value={editForm.bio} onChange={e => setEditForm(f => ({ ...f, bio: e.target.value }))} />
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3 justify-end mt-6">
+                        <button onClick={() => setEditingProfile(false)} className="btn-outline">Cancel</button>
+                        <motion.button whileTap={{ scale: 0.97 }} onClick={async () => { await handleSaveProfile(); setEditingProfile(false) }}
+                          disabled={savingProfile} className="btn-primary disabled:opacity-60">
+                          {savingProfile ? 'Saving...' : 'Save'}
+                        </motion.button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
 

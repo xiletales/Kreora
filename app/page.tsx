@@ -2,8 +2,8 @@
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { supabase, Artwork } from '@/lib/supabase'
-import { ArrowRight, Sparkles, TrendingUp, Image, GraduationCap, Trophy, Star } from 'lucide-react'
+import { supabase, Artwork, Profile } from '@/lib/supabase'
+import { ArrowRight, Sparkles, TrendingUp, Image, GraduationCap, Trophy, Star, Users } from 'lucide-react'
 
 interface CategoryGroup {
   name: string; artworks: Artwork[]; filter: string[]
@@ -59,8 +59,21 @@ const fadeUp = {
   show:   { opacity: 1, y: 0, transition: { duration: 0.55, ease: 'easeOut' as const } },
 }
 
+const DEMO_STUDENTS: Profile[] = Array.from({ length: 8 }, (_, i) => ({
+  id: String(i + 1),
+  username: ['karina', 'radika', 'james', 'beby', 'martin', 'lisa', 'irene', 'novia'][i],
+  first_name: ['Karina', 'Radika', 'James', 'Beby', 'Martin', 'Lisa', 'Irene', 'Novia'][i],
+  last_name: ['Putri', 'Rizki', 'Chen', 'Angelia', 'Sitepu', 'Tanaka', 'Park', 'Santoso'][i],
+  email: '',
+  role: 'student',
+  grade: ['XI DKV 1', 'XI DKV 1', 'XI DKV 2', 'XI DKV 2', 'XII DKV 1', 'XII DKV 1', 'XII DKV 2', 'X DKV 1'][i],
+  class: 'SMK DBB',
+  created_at: '',
+}))
+
 export default function HomePage() {
   const [artworks, setArtworks] = useState<Artwork[]>(DEMO)
+  const [students, setStudents] = useState<Profile[]>(DEMO_STUDENTS)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -70,6 +83,11 @@ export default function HomePage() {
         if (data && data.length > 0) setArtworks(data as Artwork[])
         setLoading(false)
       }, () => setLoading(false))
+
+    supabase.from('profiles').select('*').eq('role', 'student').limit(12)
+      .then(({ data }) => {
+        if (data && data.length > 0) setStudents(data as Profile[])
+      }, () => {})
   }, [])
 
   return (
@@ -344,6 +362,59 @@ export default function HomePage() {
         </section>
       ))}
 
+      {/* ═══════════════ STUDENT PORTFOLIOS ═══════════════ */}
+      <section className="py-20 px-4 sm:px-8 bg-gray-50/60">
+        <div className="max-w-screen-xl mx-auto">
+          <motion.div
+            className="flex items-end justify-between mb-10"
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-50px' }}
+            transition={{ duration: 0.5 }}
+          >
+            <div>
+              <p className="section-label flex items-center gap-1.5 mb-2"><Users size={12} /> Portfolios</p>
+              <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900">
+                Meet Our Students
+              </h2>
+              <p className="text-gray-500 text-sm mt-2">Click a student to explore their creative portfolio</p>
+            </div>
+            <Link href="/portfolio" className="hidden sm:flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-brand-500 transition-colors group">
+              View all
+              <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </motion.div>
+
+          <motion.div
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
+            variants={stagger}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: '-40px' }}
+          >
+            {students.map(s => (
+              <motion.div key={s.id} variants={fadeUp}>
+                <Link href={`/portfolio/${s.username}`} className="block bg-white rounded-2xl p-5 border border-gray-100 hover:border-brand-200 hover:shadow-md transition-all group text-center">
+                  <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold mx-auto mb-3 shadow-sm"
+                    style={{ background: 'linear-gradient(135deg, #337357, #285e46)' }}>
+                    {(s.first_name?.[0] || 'S').toUpperCase()}
+                  </div>
+                  <p className="font-bold text-gray-900 text-sm truncate">{s.first_name} {s.last_name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5 truncate">{s.grade}</p>
+                  <p className="text-xs text-brand-500 font-medium mt-2 group-hover:underline">View Portfolio →</p>
+                </Link>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          <div className="text-center mt-8 sm:hidden">
+            <Link href="/portfolio" className="btn-outline inline-flex items-center gap-2">
+              All Portfolios <ArrowRight size={16} />
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* ═══════════════ CTA SECTION ═══════════════ */}
       <section className="py-24 px-4 sm:px-8">
         <div className="max-w-screen-xl mx-auto">
@@ -373,7 +444,7 @@ export default function HomePage() {
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Link href="/signup" className="btn-primary text-base px-8 py-3 inline-flex items-center gap-2">
-                  Get Started Free <ArrowRight size={16} />
+                  Get Started <ArrowRight size={16} />
                 </Link>
                 <Link href="/gallery" className="inline-flex items-center gap-2 text-sm font-semibold text-gray-300 border border-white/20 hover:border-white/40 hover:text-white px-8 py-3 rounded-lg transition-all">
                   Browse Gallery
