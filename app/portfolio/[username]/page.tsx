@@ -39,7 +39,7 @@ export default function StudentPortfolioPage() {
           image_url: `https://picsum.photos/seed/${username}${i + 1}/400/400`,
           likes: [31, 90, 55, 39, 47, 28][i],
           creator_id: '1',
-          profiles: null,
+          profiles: undefined,
           created_at: '', updated_at: '',
         }))
         setArtworks(demoArtworks)
