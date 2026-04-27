@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     // Look up student by NISN (students table uses 'name' single field, not first/last)
     const { data: student, error } = await getAdmin()
       .from('students')
-      .select('nisn, name, grade, class, department, password_hash, photo_url, display_name')
+      .select('nisn, name, grade, class, department, password, photo_url, display_name')
       .eq('nisn', nisn)
       .maybeSingle()
 
@@ -30,8 +30,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Password check — stored in password_hash as plain text (nisn + "1" default)
-    const expectedPassword = student.password_hash ?? (nisn + '1')
+    // Password check — stored in password column as plain text (default: nisn + "1")
+    const expectedPassword = student.password ?? (nisn + '1')
     if (password !== expectedPassword) {
       return NextResponse.json(
         { error: 'NISN atau password salah.' },
