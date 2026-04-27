@@ -12,70 +12,65 @@ type Role = 'student' | 'teacher'
 export default function LoginPage() {
   const router = useRouter()
   const [role, setRole] = useState<Role>('student')
-  const [identifier, setIdentifier] = useState('')
+
+  // Separate state per tab — prevents shared-state cross-fill bug
+  const [teacherUsername, setTeacherUsername] = useState('')
+  const [studentNisn, setStudentNisn] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  function switchRole(r: Role) {
+    setRole(r)
+    // Clear all fields on tab switch to prevent stale values
+    setTeacherUsername('')
+    setStudentNisn('')
+    setPassword('')
+    setShowPass(false)
+  }
+
   async function handleLogin() {
-    if (!identifier.trim() || !password) { toast.error('Fill in all fields'); return }
+    const id = role === 'teacher' ? teacherUsername.trim() : studentNisn.trim()
+    if (!id || !password) { toast.error('Fill in all fields'); return }
     setLoading(true)
 
-    // ── Step 1: look up email from profiles ───────────────────────────────────
-    // (requires the "Public read profiles for login" RLS policy — see README)
-    let email = ''
+    if (role === 'teacher') {
+      // Teacher: authenticate via Supabase Auth using username@kreora.teacher email
+      const email = `${teacherUsername.trim()}@kreora.teacher`
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
 
-    if (role === 'student') {
-      const { data } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('nisn', identifier.trim())
-        .maybeSingle()
-
-      if (!data?.email) {
-        toast.error('Student account not found. Check your NISN or contact your teacher.')
+      if (error) {
+        toast.error('Username or password is incorrect.')
         setLoading(false)
         return
       }
-      email = data.email
-    } else {
-      const { data } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('username', identifier.trim())
-        .maybeSingle()
 
-      if (!data?.email) {
-        toast.error('Teacher account not found. Check your username.')
+      toast.success('Welcome back!')
+      router.push('/dashboard/teacher')
+
+    } else {
+      // Student: custom auth — POST to API, which sets httpOnly session cookie
+      try {
+        const res = await fetch('/api/auth/student-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nisn: studentNisn.trim(), password }),
+        })
+
+        const json = await res.json()
+
+        if (!res.ok) {
+          toast.error(json.error || 'Login failed. Check your NISN and password.')
+          setLoading(false)
+          return
+        }
+
+        toast.success('Welcome back!')
+        router.push('/dashboard/student')
+      } catch {
+        toast.error('Network error. Please try again.')
         setLoading(false)
-        return
       }
-      email = data.email
-    }
-
-    // ── Step 2: authenticate ──────────────────────────────────────────────────
-    const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password })
-
-    if (error) {
-      toast.error('Incorrect password. Please try again.')
-      setLoading(false)
-      return
-    }
-
-    // ── Step 3: fresh profile fetch to get correct role for redirect ──────────
-    // This uses the now-authenticated session so it bypasses anon RLS.
-    const { data: freshProfile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', authData.user.id)
-      .single()
-
-    toast.success('Welcome back!')
-
-    if (freshProfile?.role === 'teacher') {
-      router.push('/dashboard?tab=assignments')
-    } else {
-      router.push('/dashboard?tab=assignment')
     }
   }
 
@@ -98,7 +93,7 @@ export default function LoginPage() {
             {(['student', 'teacher'] as Role[]).map(r => (
               <button
                 key={r}
-                onClick={() => { setRole(r); setIdentifier(''); setPassword('') }}
+                onClick={() => switchRole(r)}
                 className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
                   role === r
                     ? 'bg-brand-500 text-white shadow-sm'
@@ -124,14 +119,29 @@ export default function LoginPage() {
                 <label className="text-xs font-medium text-gray-600 mb-1 block">
                   {role === 'student' ? 'NISN' : 'Username'}
                 </label>
-                <input
-                  className="kreora-input"
-                  type="text"
-                  placeholder={role === 'student' ? 'Enter your NISN' : 'Enter your username'}
-                  value={identifier}
-                  onChange={e => setIdentifier(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                />
+                {role === 'student' ? (
+                  <input
+                    key="student-nisn"
+                    className="kreora-input"
+                    type="text"
+                    autoComplete="off"
+                    placeholder="Enter your NISN"
+                    value={studentNisn}
+                    onChange={e => setStudentNisn(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                  />
+                ) : (
+                  <input
+                    key="teacher-username"
+                    className="kreora-input"
+                    type="text"
+                    autoComplete="username"
+                    placeholder="Enter your username"
+                    value={teacherUsername}
+                    onChange={e => setTeacherUsername(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                  />
+                )}
               </div>
 
               <div>
@@ -140,6 +150,7 @@ export default function LoginPage() {
                   <input
                     className="kreora-input pr-10"
                     type={showPass ? 'text' : 'password'}
+                    autoComplete={role === 'teacher' ? 'current-password' : 'off'}
                     placeholder="Password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
@@ -154,7 +165,7 @@ export default function LoginPage() {
                   </button>
                 </div>
                 {role === 'student' && (
-                  <p className="text-xs text-gray-400 mt-1">Default password is your NISN</p>
+                  <p className="text-xs text-gray-400 mt-1">Default password is your NISN + 1</p>
                 )}
               </div>
 
