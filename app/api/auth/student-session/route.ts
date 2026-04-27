@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   }
   try {
     const student = JSON.parse(cookie.value)
-    if (!student?.id || student?.role !== 'student') {
+    if (!student?.nisn || student?.role !== 'student') {
       return NextResponse.json({ student: null })
     }
     return NextResponse.json({ student })

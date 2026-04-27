@@ -4,7 +4,53 @@ import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  // ── Student routes: protected by httpOnly cookie ──────────────────────────
+  // ── /login: redirect already-authenticated users ──────────────────────────
+  if (pathname === '/login') {
+    // Student cookie check
+    const studentCookie = req.cookies.get('kreora_student_session')
+    if (studentCookie?.value) {
+      try {
+        const s = JSON.parse(studentCookie.value)
+        if (s?.nisn && s?.role === 'student') {
+          return NextResponse.redirect(new URL('/dashboard/student', req.url))
+        }
+      } catch { /* invalid cookie, continue to login */ }
+    }
+
+    // Teacher Supabase session check
+    const res = NextResponse.next()
+    const supabase = createMiddlewareClient({ req, res })
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      return NextResponse.redirect(new URL('/dashboard/teacher', req.url))
+    }
+
+    return res
+  }
+
+  // ── /dashboard (root): redirect to the right dashboard ───────────────────
+  if (pathname === '/dashboard') {
+    const studentCookie = req.cookies.get('kreora_student_session')
+    if (studentCookie?.value) {
+      try {
+        const s = JSON.parse(studentCookie.value)
+        if (s?.nisn && s?.role === 'student') {
+          return NextResponse.redirect(new URL('/dashboard/student', req.url))
+        }
+      } catch { /* fall through */ }
+    }
+
+    const res = NextResponse.next()
+    const supabase = createMiddlewareClient({ req, res })
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      return NextResponse.redirect(new URL('/dashboard/teacher', req.url))
+    }
+
+    return NextResponse.redirect(new URL('/login', req.url))
+  }
+
+  // ── /dashboard/student/*: protected by httpOnly cookie ───────────────────
   if (pathname.startsWith('/dashboard/student')) {
     const cookie = req.cookies.get('kreora_student_session')
     if (!cookie?.value) {
@@ -12,7 +58,7 @@ export async function middleware(req: NextRequest) {
     }
     try {
       const session = JSON.parse(cookie.value)
-      if (!session?.id || session?.role !== 'student') {
+      if (!session?.nisn || session?.role !== 'student') {
         return NextResponse.redirect(new URL('/login', req.url))
       }
     } catch {
@@ -21,7 +67,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  // ── Teacher routes: protected by Supabase Auth session ───────────────────
+  // ── /dashboard/teacher/*: protected by Supabase Auth session ─────────────
   if (pathname.startsWith('/dashboard/teacher')) {
     const res = NextResponse.next()
     const supabase = createMiddlewareClient({ req, res })
@@ -38,5 +84,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/student/:path*', '/dashboard/teacher/:path*'],
+  matcher: ['/login', '/dashboard', '/dashboard/student/:path*', '/dashboard/teacher/:path*'],
 }
