@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { ClipboardList, FileText, Star, Award, CheckCircle, Clock } from 'lucide-react'
 
-const supabaseAdmin = createClient(
+const getAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
@@ -25,7 +25,7 @@ export default async function StudentHomePage() {
   const { nisn } = session
 
   // Get student record to find their teacher
-  const { data: student } = await supabaseAdmin
+  const { data: student } = await getAdmin()
     .from('students')
     .select('added_by')
     .eq('nisn', nisn)
@@ -37,12 +37,12 @@ export default async function StudentHomePage() {
 
   // Parallel: assignments + submissions
   const [{ data: rawAssignments }, { data: rawSubmissions }] = await Promise.all([
-    supabaseAdmin
+    getAdmin()
       .from('assignments')
       .select('id, title, deadline, category')
       .eq('teacher_id', teacherId)
       .order('created_at', { ascending: false }),
-    supabaseAdmin
+    getAdmin()
       .from('submissions')
       .select('id, assignment_id, grade, created_at')
       .eq('nisn', nisn),
@@ -55,7 +55,7 @@ export default async function StudentHomePage() {
   const submissionIds = submissions.map(s => s.id)
   let badgeCount = 0
   if (submissionIds.length > 0) {
-    const { count } = await supabaseAdmin
+    const { count } = await getAdmin()
       .from('badges')
       .select('id', { count: 'exact', head: true })
       .in('submission_id', submissionIds)
@@ -65,7 +65,7 @@ export default async function StudentHomePage() {
   // Recent feedback
   let recentFeedback: { id: string; comment: string; created_at: string; assignment_title: string }[] = []
   if (submissionIds.length > 0) {
-    const { data: feedbacks } = await supabaseAdmin
+    const { data: feedbacks } = await getAdmin()
       .from('feedbacks')
       .select('id, comment, created_at, submission_id')
       .in('submission_id', submissionIds)

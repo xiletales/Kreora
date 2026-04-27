@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseAdmin = createClient(
+const getAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
@@ -28,7 +28,7 @@ export async function PATCH(req: NextRequest) {
       const path = `students/${nisn}/avatar.${ext}`
       const bytes = await file.arrayBuffer()
 
-      const { error: uploadError } = await supabaseAdmin.storage
+      const { error: uploadError } = await getAdmin().storage
         .from('avatars')
         .upload(path, bytes, { contentType: file.type, upsert: true })
 
@@ -36,7 +36,7 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: 'Gagal upload foto.' }, { status: 500 })
       }
 
-      const { data: { publicUrl } } = supabaseAdmin.storage
+      const { data: { publicUrl } } = getAdmin().storage
         .from('avatars')
         .getPublicUrl(path)
 
@@ -44,7 +44,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Update students table
-    const { error: dbError } = await supabaseAdmin
+    const { error: dbError } = await getAdmin()
       .from('students')
       .update({ display_name: displayName || null, bio: bio || null, photo_url: photoUrl })
       .eq('nisn', nisn)

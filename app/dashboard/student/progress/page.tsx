@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { CheckCircle, Clock, TrendingUp, FileText, Star, MessageSquare } from 'lucide-react'
 
-const supabaseAdmin = createClient(
+const getAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
@@ -37,7 +37,7 @@ export default async function StudentProgressPage() {
   const { nisn } = JSON.parse(raw)
 
   // Get student's teacher
-  const { data: student } = await supabaseAdmin
+  const { data: student } = await getAdmin()
     .from('students')
     .select('added_by')
     .eq('nisn', nisn)
@@ -47,12 +47,12 @@ export default async function StudentProgressPage() {
 
   // Parallel: assignments + submissions
   const [{ data: rawAssignments }, { data: rawSubmissions }] = await Promise.all([
-    supabaseAdmin
+    getAdmin()
       .from('assignments')
       .select('id, title, deadline, category')
       .eq('teacher_id', student.added_by)
       .order('created_at', { ascending: false }),
-    supabaseAdmin
+    getAdmin()
       .from('submissions')
       .select('id, assignment_id, grade, created_at')
       .eq('nisn', nisn),
@@ -64,7 +64,7 @@ export default async function StudentProgressPage() {
   // Feedbacks
   let feedbacks: { id: string; comment: string; created_at: string; assignment_id: string }[] = []
   if (submissions.length > 0) {
-    const { data: rawFeedbacks } = await supabaseAdmin
+    const { data: rawFeedbacks } = await getAdmin()
       .from('feedbacks')
       .select('id, comment, created_at, submission_id')
       .in('submission_id', submissions.map(s => s.id))

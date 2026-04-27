@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { Trophy, Sparkles, Wrench, Lightbulb, Award } from 'lucide-react'
 
-const supabaseAdmin = createClient(
+const getAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
@@ -25,7 +25,7 @@ export default async function StudentBadgesPage() {
   const { nisn } = JSON.parse(raw)
 
   // Get submissions for this student
-  const { data: submissions } = await supabaseAdmin
+  const { data: submissions } = await getAdmin()
     .from('submissions')
     .select('id, assignment_id, assignments(title)')
     .eq('nisn', nisn)
@@ -34,7 +34,7 @@ export default async function StudentBadgesPage() {
 
   let badges: { id: string; badge_type: string; submission_id: string; created_at: string }[] = []
   if (subIds.length > 0) {
-    const { data } = await supabaseAdmin
+    const { data } = await getAdmin()
       .from('badges')
       .select('id, badge_type, submission_id, created_at')
       .in('submission_id', subIds)

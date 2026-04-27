@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import AssignmentClient from './AssignmentClient'
 
-const supabaseAdmin = createClient(
+const getAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
@@ -16,7 +16,7 @@ export default async function StudentAssignmentPage() {
   const session = JSON.parse(raw)
   const { nisn } = session
 
-  const { data: student } = await supabaseAdmin
+  const { data: student } = await getAdmin()
     .from('students')
     .select('added_by')
     .eq('nisn', nisn)
@@ -25,12 +25,12 @@ export default async function StudentAssignmentPage() {
   if (!student) redirect('/login')
 
   const [{ data: rawAssignments }, { data: rawSubmissions }] = await Promise.all([
-    supabaseAdmin
+    getAdmin()
       .from('assignments')
       .select('id, title, deadline, category, description')
       .eq('teacher_id', student.added_by)
       .order('created_at', { ascending: false }),
-    supabaseAdmin
+    getAdmin()
       .from('submissions')
       .select('assignment_id, file_url, grade')
       .eq('nisn', nisn),

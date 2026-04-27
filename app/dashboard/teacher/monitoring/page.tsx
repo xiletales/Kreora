@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers'
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/auth-helpers-nextjs'
 import { Users, ClipboardList, FileText, Star, CheckCircle, AlertCircle } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -35,8 +35,18 @@ function ProgressBar({ pct }: { pct: number }) {
 // ── Page (server component) ───────────────────────────────────────────────────
 
 export default async function MonitoringPage() {
-  const cookieStore = cookies()
-  const supabase = createServerComponentClient({ cookies: () => cookieStore })
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+      },
+    }
+  )
 
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return null  // middleware handles redirect; this is a safety fallback

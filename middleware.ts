@@ -1,12 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/auth-helpers-nextjs'
+
+function makeSupabase(req: NextRequest, res: NextResponse) {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return req.cookies.get(name)?.value
+        },
+        set(name: string, value: string, options: object) {
+          res.cookies.set({ name, value, ...(options as Record<string, unknown>) })
+        },
+        remove(name: string, options: object) {
+          res.cookies.set({ name, value: '', ...(options as Record<string, unknown>) })
+        },
+      },
+    }
+  )
+}
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   // ── /login: redirect already-authenticated users ──────────────────────────
   if (pathname === '/login') {
-    // Student cookie check
     const studentCookie = req.cookies.get('kreora_student_session')
     if (studentCookie?.value) {
       try {
@@ -14,17 +33,15 @@ export async function middleware(req: NextRequest) {
         if (s?.nisn && s?.role === 'student') {
           return NextResponse.redirect(new URL('/dashboard/student', req.url))
         }
-      } catch { /* invalid cookie, continue to login */ }
+      } catch { /* invalid cookie */ }
     }
 
-    // Teacher Supabase session check
     const res = NextResponse.next()
-    const supabase = createMiddlewareClient({ req, res })
+    const supabase = makeSupabase(req, res)
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
       return NextResponse.redirect(new URL('/dashboard/teacher', req.url))
     }
-
     return res
   }
 
@@ -41,12 +58,11 @@ export async function middleware(req: NextRequest) {
     }
 
     const res = NextResponse.next()
-    const supabase = createMiddlewareClient({ req, res })
+    const supabase = makeSupabase(req, res)
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
       return NextResponse.redirect(new URL('/dashboard/teacher', req.url))
     }
-
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
@@ -70,13 +86,12 @@ export async function middleware(req: NextRequest) {
   // ── /dashboard/teacher/*: protected by Supabase Auth session ─────────────
   if (pathname.startsWith('/dashboard/teacher')) {
     const res = NextResponse.next()
-    const supabase = createMiddlewareClient({ req, res })
+    const supabase = makeSupabase(req, res)
     const { data: { session } } = await supabase.auth.getSession()
 
     if (!session) {
       return NextResponse.redirect(new URL('/login', req.url))
     }
-
     return res
   }
 

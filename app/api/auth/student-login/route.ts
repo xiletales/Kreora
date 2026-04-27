@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-// Service-role client — bypasses RLS for student auth lookup
-const supabaseAdmin = createClient(
+const getAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
@@ -18,7 +17,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Look up student by NISN (students table uses 'name' single field, not first/last)
-    const { data: student, error } = await supabaseAdmin
+    const { data: student, error } = await getAdmin()
       .from('students')
       .select('nisn, name, grade, class, department, password_hash, photo_url, display_name')
       .eq('nisn', nisn)

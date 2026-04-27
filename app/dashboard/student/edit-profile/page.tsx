@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import EditProfileClient from './EditProfileClient'
 
-const supabaseAdmin = createClient(
+const getAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
@@ -16,7 +16,7 @@ export default async function StudentEditProfilePage() {
   const session = JSON.parse(raw)
   const { nisn } = session
 
-  const { data: student } = await supabaseAdmin
+  const { data: student } = await getAdmin()
     .from('students')
     .select('nisn, name, grade, class, department, display_name, bio, photo_url')
     .eq('nisn', nisn)

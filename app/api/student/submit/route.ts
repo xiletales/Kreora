@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseAdmin = createClient(
+const getAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     const storagePath = `${assignmentId}/${nisn}/submission.${ext}`
 
     const arrayBuffer = await file.arrayBuffer()
-    const { error: uploadError } = await supabaseAdmin.storage
+    const { error: uploadError } = await getAdmin().storage
       .from('submissions')
       .upload(storagePath, arrayBuffer, {
         contentType: file.type,
@@ -38,12 +38,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Gagal upload file.' }, { status: 500 })
     }
 
-    const { data: { publicUrl } } = supabaseAdmin.storage
+    const { data: { publicUrl } } = getAdmin().storage
       .from('submissions')
       .getPublicUrl(storagePath)
 
     // Upsert submission record (one submission per student per assignment)
-    const { error: dbError } = await supabaseAdmin
+    const { error: dbError } = await getAdmin()
       .from('submissions')
       .upsert(
         { nisn, assignment_id: assignmentId, file_url: publicUrl },

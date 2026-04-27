@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import ShowcaseClient from './ShowcaseClient'
 
-const supabaseAdmin = createClient(
+const getAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
@@ -16,7 +16,7 @@ export default async function StudentShowcasePage() {
   const { nisn } = JSON.parse(raw)
 
   // Submissions with assignment title
-  const { data: rawSubmissions } = await supabaseAdmin
+  const { data: rawSubmissions } = await getAdmin()
     .from('submissions')
     .select('id, assignment_id, file_url, grade, is_published, created_at, assignments(title)')
     .eq('nisn', nisn)
@@ -39,11 +39,11 @@ export default async function StudentShowcasePage() {
 
   // Feedbacks + like counts in parallel (likes table may not exist yet — graceful)
   const [{ data: rawFeedbacks }, likeResult] = await Promise.all([
-    supabaseAdmin
+    getAdmin()
       .from('feedbacks')
       .select('id, submission_id, comment, created_at')
       .in('submission_id', submissionIds),
-    supabaseAdmin
+    getAdmin()
       .from('likes')
       .select('submission_id', { count: 'exact' })
       .in('submission_id', submissionIds),
