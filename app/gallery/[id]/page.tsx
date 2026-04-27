@@ -1,10 +1,10 @@
 'use client'
 import { motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { supabase, Artwork } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
-import { Heart, ArrowLeft, Send, Share2, Bookmark } from 'lucide-react'
+import { Heart, ArrowLeft, Send, Share2, Bookmark, User } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 
@@ -21,29 +21,48 @@ const DEMO: Artwork = {
   created_at: '2024-10-13', updated_at: ''
 }
 
-interface Comment { id: string; content: string; profiles: { first_name: string; last_name: string }; created_at: string }
+interface Comment {
+  id: string
+  content: string
+  guest_name?: string | null
+  profiles: { first_name: string; last_name: string } | null
+  created_at: string
+}
 
 export default function ArtworkDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const router = useRouter()
   const { user, profile } = useAuth()
   const [artwork, setArtwork] = useState<Artwork>(DEMO)
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')
+  const [guestName, setGuestName] = useState('')
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(DEMO.likes)
   const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+
+  const LIKE_KEY = `kreora_liked_${id}`
 
   useEffect(() => {
     async function load() {
       try {
-        const { data: art } = await supabase.from('artworks').select('*, profiles(*)').eq('id', id).single()
+        const { data: art } = await supabase
+          .from('artworks').select('*, profiles(*)').eq('id', id).single()
         if (art) { setArtwork(art as Artwork); setLikeCount(art.likes || 0) }
-        const { data: cmts } = await supabase.from('comments').select('*, profiles(*)').eq('artwork_id', id).order('created_at', { ascending: false })
+
+        const { data: cmts } = await supabase
+          .from('comments').select('*, profiles(*)')
+          .eq('artwork_id', id).order('created_at', { ascending: false })
         if (cmts) setComments(cmts as Comment[])
+
+        // Liked state: logged-in users check DB, guests check localStorage
         if (user) {
-          const { data: likeData } = await supabase.from('artwork_likes').select('id').eq('artwork_id', id).eq('user_id', user.id).single()
+          const { data: likeData } = await supabase
+            .from('artwork_likes').select('id')
+            .eq('artwork_id', id).eq('user_id', user.id).maybeSingle()
           setLiked(!!likeData)
+        } else {
+          setLiked(!!localStorage.getItem(LIKE_KEY))
         }
       } catch { /* use demo */ }
       setLoading(false)
@@ -52,25 +71,70 @@ export default function ArtworkDetailPage() {
   }, [id, user])
 
   async function handleLike() {
-    if (!user) { router.push('/login'); return }
-    if (liked) {
-      await supabase.from('artwork_likes').delete().eq('artwork_id', id).eq('user_id', user.id)
-      await supabase.from('artworks').update({ likes: likeCount - 1 }).eq('id', id)
-      setLikeCount(c => c - 1); setLiked(false)
+    const optimisticLiked = !liked
+    setLiked(optimisticLiked)
+    setLikeCount(c => optimisticLiked ? c + 1 : Math.max(0, c - 1))
+
+    if (user) {
+      // Logged-in: track in artwork_likes table
+      if (optimisticLiked) {
+        await supabase.from('artwork_likes').insert({ artwork_id: id, user_id: user.id })
+        await supabase.from('artworks').update({ likes: likeCount + 1 }).eq('id', id)
+      } else {
+        await supabase.from('artwork_likes').delete()
+          .eq('artwork_id', id).eq('user_id', user.id)
+        await supabase.from('artworks').update({ likes: Math.max(0, likeCount - 1) }).eq('id', id)
+      }
     } else {
-      await supabase.from('artwork_likes').insert({ artwork_id: id, user_id: user.id })
-      await supabase.from('artworks').update({ likes: likeCount + 1 }).eq('id', id)
-      setLikeCount(c => c + 1); setLiked(true)
+      // Guest: track in localStorage, update likes count via RPC
+      if (optimisticLiked) {
+        localStorage.setItem(LIKE_KEY, '1')
+        await supabase.rpc('increment_artwork_likes', { art_id: id, delta: 1 })
+      } else {
+        localStorage.removeItem(LIKE_KEY)
+        await supabase.rpc('increment_artwork_likes', { art_id: id, delta: -1 })
+      }
     }
   }
 
   async function handleComment() {
-    if (!user || !newComment.trim()) return
-    const { data, error } = await supabase.from('comments').insert({ artwork_id: id, author_id: user.id, content: newComment }).select('*, profiles(*)').single()
-    if (!error && data) { setComments(prev => [data as Comment, ...prev]); setNewComment(''); toast.success('Comment added!') }
+    if (!newComment.trim()) return
+    if (!user && !guestName.trim()) {
+      toast.error('Please enter your name to comment')
+      return
+    }
+    setSubmitting(true)
+
+    const insertData: Record<string, string | null> = {
+      artwork_id: id,
+      content: newComment.trim(),
+      author_id: user ? user.id : null,
+      guest_name: user ? null : guestName.trim(),
+    }
+
+    const { data, error } = await supabase
+      .from('comments')
+      .insert(insertData)
+      .select('*, profiles(*)')
+      .single()
+
+    setSubmitting(false)
+    if (error) { toast.error('Failed to post comment'); return }
+    if (data) {
+      setComments(prev => [data as Comment, ...prev])
+      setNewComment('')
+      toast.success('Comment posted!')
+    }
   }
 
   const catCls = CAT_COLORS[artwork.category?.toLowerCase()] || 'cat-digital'
+  const displayName = (c: Comment) =>
+    c.profiles
+      ? `${c.profiles.first_name} ${c.profiles.last_name}`.trim()
+      : (c.guest_name || 'Guest')
+  const avatarLetter = (c: Comment) =>
+    c.profiles ? (c.profiles.first_name?.[0] || 'U').toUpperCase()
+      : (c.guest_name?.[0] || 'G').toUpperCase()
 
   return (
     <div className="min-h-screen bg-white">
@@ -82,7 +146,10 @@ export default function ArtworkDetailPage() {
             <ArrowLeft size={15} /> Gallery
           </Link>
           <div className="flex items-center gap-2">
-            <button className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors">
+            <button
+              onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success('Link copied!') }}
+              className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors"
+            >
               <Share2 size={16} />
             </button>
             <button className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors">
@@ -191,53 +258,91 @@ export default function ArtworkDetailPage() {
             {/* Comments */}
             <div className="flex-1">
               <h3 className="font-semibold text-gray-900 text-sm mb-4">
-                Comments{comments.length > 0 && <span className="ml-1.5 text-gray-400 font-normal">({comments.length})</span>}
+                Comments{comments.length > 0 && (
+                  <span className="ml-1.5 text-gray-400 font-normal">({comments.length})</span>
+                )}
               </h3>
 
-              <div className="flex gap-2 mb-5">
-                <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold shrink-0 mt-0.5">
-                  {user ? (profile?.first_name?.[0] || 'U').toUpperCase() : '?'}
-                </div>
-                <div className="flex-1 flex gap-2">
-                  <input
-                    type="text"
-                    placeholder={user ? 'Add your comment...' : 'Log in to comment'}
-                    value={newComment}
-                    onChange={e => setNewComment(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleComment()}
-                    disabled={!user}
-                    className="kreora-input flex-1 text-sm rounded-full py-2 px-4"
-                  />
-                  <motion.button
-                    onClick={handleComment}
-                    whileTap={{ scale: 0.9 }}
-                    disabled={!user || !newComment.trim()}
-                    className="w-9 h-9 rounded-full flex items-center justify-center bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
-                  >
-                    <Send size={14} />
-                  </motion.button>
+              {/* Comment input */}
+              <div className="mb-5 space-y-2">
+                {/* Guest name field — only shown when not logged in */}
+                {!user && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                      <User size={12} className="text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Your name"
+                      value={guestName}
+                      onChange={e => setGuestName(e.target.value)}
+                      className="kreora-input flex-1 text-sm rounded-full py-2 px-4"
+                      maxLength={40}
+                    />
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold shrink-0 mt-0.5">
+                    {user
+                      ? (profile?.first_name?.[0] || 'U').toUpperCase()
+                      : (guestName?.[0] || '?').toUpperCase()
+                    }
+                  </div>
+                  <div className="flex-1 flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Add your comment..."
+                      value={newComment}
+                      onChange={e => setNewComment(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleComment()}
+                      className="kreora-input flex-1 text-sm rounded-full py-2 px-4"
+                    />
+                    <motion.button
+                      onClick={handleComment}
+                      whileTap={{ scale: 0.9 }}
+                      disabled={submitting || !newComment.trim() || (!user && !guestName.trim())}
+                      className="w-9 h-9 rounded-full flex items-center justify-center bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+                    >
+                      <Send size={14} />
+                    </motion.button>
+                  </div>
                 </div>
               </div>
 
+              {/* Comment list */}
               <div className="space-y-3">
-                {comments.map(c => (
-                  <motion.div
-                    key={c.id}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex gap-2.5"
-                  >
-                    <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 shrink-0 mt-0.5">
-                      {(c.profiles?.first_name?.[0] || 'U').toUpperCase()}
+                {loading ? (
+                  [...Array(3)].map((_, i) => (
+                    <div key={i} className="flex gap-2.5">
+                      <div className="w-7 h-7 rounded-full skeleton shrink-0" />
+                      <div className="flex-1 skeleton rounded-2xl h-14" />
                     </div>
-                    <div className="flex-1 bg-gray-50 rounded-2xl px-3.5 py-2.5">
-                      <span className="text-xs font-semibold text-gray-800">{c.profiles?.first_name} {c.profiles?.last_name}</span>
-                      <p className="text-sm text-gray-600 mt-0.5 leading-relaxed">{c.content}</p>
-                    </div>
-                  </motion.div>
-                ))}
-                {comments.length === 0 && (
+                  ))
+                ) : comments.length === 0 ? (
                   <p className="text-sm text-gray-400 text-center py-6">No comments yet. Be the first!</p>
+                ) : (
+                  comments.map(c => (
+                    <motion.div
+                      key={c.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex gap-2.5"
+                    >
+                      <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 shrink-0 mt-0.5">
+                        {avatarLetter(c)}
+                      </div>
+                      <div className="flex-1 bg-gray-50 rounded-2xl px-3.5 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-gray-800">{displayName(c)}</span>
+                          {!c.profiles && (
+                            <span className="text-[10px] text-gray-400 bg-gray-200 px-1.5 py-0.5 rounded-full">Guest</span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 mt-0.5 leading-relaxed">{c.content}</p>
+                      </div>
+                    </motion.div>
+                  ))
                 )}
               </div>
             </div>

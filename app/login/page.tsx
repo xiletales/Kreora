@@ -18,51 +18,61 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
 
   async function handleLogin() {
-    if (!identifier || !password) { toast.error('Fill in all fields'); return }
+    if (!identifier.trim() || !password) { toast.error('Fill in all fields'); return }
     setLoading(true)
 
-    let profileData: { email: string; role: string } | null = null
+    // ── Step 1: look up email from profiles ───────────────────────────────────
+    // (requires the "Public read profiles for login" RLS policy — see README)
+    let email = ''
 
     if (role === 'student') {
-      // Student logs in with NISN
       const { data } = await supabase
         .from('profiles')
-        .select('email, role')
-        .eq('nisn', identifier)
+        .select('email')
+        .eq('nisn', identifier.trim())
         .maybeSingle()
-      if (data) profileData = data
+
+      if (!data?.email) {
+        toast.error('Student account not found. Check your NISN or contact your teacher.')
+        setLoading(false)
+        return
+      }
+      email = data.email
     } else {
-      // Teacher logs in with username
       const { data } = await supabase
         .from('profiles')
-        .select('email, role')
-        .eq('username', identifier)
+        .select('email')
+        .eq('username', identifier.trim())
         .maybeSingle()
-      if (data) profileData = data
+
+      if (!data?.email) {
+        toast.error('Teacher account not found. Check your username.')
+        setLoading(false)
+        return
+      }
+      email = data.email
     }
 
-    if (!profileData?.email) {
-      toast.error('Account not found')
+    // ── Step 2: authenticate ──────────────────────────────────────────────────
+    const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password })
+
+    if (error) {
+      toast.error('Incorrect password. Please try again.')
       setLoading(false)
       return
     }
 
-    if (profileData.role !== role) {
-      toast.error(`This account is not a ${role} account`)
-      setLoading(false)
-      return
-    }
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email: profileData.email,
-      password,
-    })
-
-    setLoading(false)
-    if (error) { toast.error(error.message); return }
+    // ── Step 3: fresh profile fetch to get correct role for redirect ──────────
+    // This uses the now-authenticated session so it bypasses anon RLS.
+    const { data: freshProfile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', authData.user.id)
+      .single()
 
     toast.success('Welcome back!')
-    if (profileData.role === 'teacher') {
+
+    if (freshProfile?.role === 'teacher') {
       router.push('/dashboard?tab=assignments')
     } else {
       router.push('/dashboard?tab=assignment')
@@ -137,7 +147,7 @@ export default function LoginPage() {
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPass(!showPass)}
+                    onClick={() => setShowPass(v => !v)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
                     {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
