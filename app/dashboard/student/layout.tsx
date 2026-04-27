@@ -7,7 +7,7 @@ export default async function StudentDashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const raw = cookieStore.get('kreora_student_session')?.value
 
   if (!raw) redirect('/login')

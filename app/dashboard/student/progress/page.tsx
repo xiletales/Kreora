@@ -30,7 +30,7 @@ function ProgressBar({ pct, color = 'bg-brand-500' }: { pct: number; color?: str
 }
 
 export default async function StudentProgressPage() {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const raw = cookieStore.get('kreora_student_session')?.value
   if (!raw) redirect('/login')
 

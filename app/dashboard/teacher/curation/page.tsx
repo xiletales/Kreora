@@ -97,7 +97,7 @@ export default function CurationPage() {
       }
 
       mergedSubs = (subs ?? []).map(s => {
-        const asgn = s.assignments as { title: string; category: string } | null
+       const asgn = (s.assignments as { title: string; category: string }[] | null)?.[0] ?? null
         return {
           id: s.id,
           nisn: s.nisn,

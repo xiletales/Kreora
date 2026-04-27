@@ -18,7 +18,7 @@ const BADGE_META: Record<string, { icon: React.ElementType; color: string; bg: s
 const FALLBACK_META = { icon: Award, color: 'text-brand-600', bg: 'bg-brand-50', border: 'border-brand-100' }
 
 export default async function StudentBadgesPage() {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const raw = cookieStore.get('kreora_student_session')?.value
   if (!raw) redirect('/login')
 

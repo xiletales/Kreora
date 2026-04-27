@@ -17,7 +17,7 @@ function statusBadge(deadline: string) {
 }
 
 export default async function StudentHomePage() {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const raw = cookieStore.get('kreora_student_session')?.value
   if (!raw) redirect('/login')
 

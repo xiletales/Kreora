@@ -116,7 +116,7 @@ export default function FeedbackPage() {
 
     // 5. Merge into items
     const merged: SubmissionItem[] = submissions.map(s => {
-      const asgn = s.assignments as { title: string; category: string } | null
+      const asgn = (s.assignments as any)?.[0] ?? null
       return {
         id: s.id,
         nisn: s.nisn,

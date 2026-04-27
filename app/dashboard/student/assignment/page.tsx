@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 )
 
 export default async function StudentAssignmentPage() {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const raw = cookieStore.get('kreora_student_session')?.value
   if (!raw) redirect('/login')
 
