@@ -2,18 +2,21 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createBrowserClient } from '@supabase/auth-helpers-nextjs'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { Eye, EyeOff, GraduationCap, BookOpen } from 'lucide-react'
+
+const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 type Role = 'student' | 'teacher'
 
 export default function LoginPage() {
   const router = useRouter()
   const [role, setRole] = useState<Role>('student')
-
-  // Separate state per tab — prevents shared-state cross-fill bug
   const [teacherUsername, setTeacherUsername] = useState('')
   const [studentNisn, setStudentNisn] = useState('')
   const [password, setPassword] = useState('')
@@ -22,7 +25,6 @@ export default function LoginPage() {
 
   function switchRole(r: Role) {
     setRole(r)
-    // Clear all fields on tab switch to prevent stale values
     setTeacherUsername('')
     setStudentNisn('')
     setPassword('')
@@ -31,12 +33,11 @@ export default function LoginPage() {
 
   async function handleLogin() {
     const id = role === 'teacher' ? teacherUsername.trim() : studentNisn.trim()
-    if (!id || !password) { toast.error('Fill in all fields'); return }
+    if (!id || !password) { toast.error('Please fill in all fields.'); return }
     setLoading(true)
 
     if (role === 'teacher') {
-      // Teacher: authenticate via Supabase Auth using username@kreora.teacher email
-      const email = `${teacherUsername.trim()}@kreora.teacher`
+      const email = `${id.toLowerCase()}@kreora.teacher`
       const { error } = await supabase.auth.signInWithPassword({ email, password })
 
       if (error) {
@@ -46,26 +47,26 @@ export default function LoginPage() {
       }
 
       toast.success('Welcome back!')
+      setLoading(false)
       router.push('/dashboard/teacher')
 
     } else {
-      // Student: custom auth — POST to API, which sets httpOnly session cookie
       try {
         const res = await fetch('/api/auth/student-login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ nisn: studentNisn.trim(), password }),
         })
-
         const json = await res.json()
 
         if (!res.ok) {
-          toast.error(json.error || 'Login failed. Check your NISN and password.')
+          toast.error(json.error || 'NISN or password is incorrect.')
           setLoading(false)
           return
         }
 
         toast.success('Welcome back!')
+        setLoading(false)
         router.push('/dashboard/student')
       } catch {
         toast.error('Network error. Please try again.')
@@ -95,9 +96,7 @@ export default function LoginPage() {
                 key={r}
                 onClick={() => switchRole(r)}
                 className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
-                  role === r
-                    ? 'bg-brand-500 text-white shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                  role === r ? 'bg-brand-500 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
                 {r === 'student' ? <GraduationCap size={15} /> : <BookOpen size={15} />}
@@ -165,7 +164,7 @@ export default function LoginPage() {
                   </button>
                 </div>
                 {role === 'student' && (
-                  <p className="text-xs text-gray-400 mt-1">Default password is your NISN + 1</p>
+                  <p className="text-xs text-gray-400 mt-1">Default password is your NISN + "1"</p>
                 )}
               </div>
 

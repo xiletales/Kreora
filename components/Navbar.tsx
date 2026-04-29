@@ -4,18 +4,18 @@ import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 import { useState, useEffect } from 'react'
-import { Menu, X, Search, ChevronDown } from 'lucide-react'
+import { Menu, X, Search, ChevronDown, LayoutDashboard } from 'lucide-react'
 
-const NAV = [
-  { href: '/', label: 'Home' },
-  { href: '/gallery', label: 'Gallery' },
+const NAV_BASE = [
+  { href: '/',          label: 'Home' },
+  { href: '/about',     label: 'About' },
+  { href: '/gallery',   label: 'Gallery' },
   { href: '/portfolio', label: 'Portfolio' },
-  { href: '/about', label: 'About' },
 ]
 
 export default function Navbar() {
   const pathname = usePathname()
-  const { user, profile, signOut } = useAuth()
+  const { user, role, teacherProfile, signOut } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchVal, setSearchVal] = useState('')
@@ -27,6 +27,15 @@ export default function Navbar() {
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
+  const NAV = role === 'teacher'
+    ? [...NAV_BASE, { href: '/dashboard/teacher', label: 'Dashboard' }]
+    : NAV_BASE
+
+  const displayName = teacherProfile?.name?.split(' ')[0] ?? 'Profile'
+  const initials = teacherProfile?.name
+    ? teacherProfile.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+    : (user?.email?.[0] ?? 'U').toUpperCase()
 
   return (
     <motion.header
@@ -42,7 +51,7 @@ export default function Navbar() {
           <span className="font-display text-[1.2rem] font-bold text-gray-900 tracking-tight">Kreora</span>
         </Link>
 
-        {/* Desktop nav links */}
+        {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-1 flex-1">
           {NAV.map(link => {
             const active = pathname === link.href
@@ -65,12 +74,12 @@ export default function Navbar() {
             <input
               type="text"
               placeholder="Search artworks, creators..."
-              className="w-full pl-8 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-full outline-none focus:bg-white focus:border-rose-300 focus:shadow-[0_0_0_3px_rgba(253,164,175,0.2)] transition-all placeholder-gray-400"
+              className="w-full pl-8 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-full outline-none focus:bg-white focus:border-[#EA9AB2] focus:shadow-[0_0_0_3px_rgba(234,154,178,0.2)] transition-all placeholder-gray-400"
             />
           </div>
         </div>
 
-        {/* Right side actions */}
+        {/* Right side */}
         <div className="hidden md:flex items-center gap-2 shrink-0 ml-2">
           {user ? (
             <div className="relative">
@@ -78,16 +87,16 @@ export default function Navbar() {
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
                 className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                <div className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center text-white text-xs font-bold shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #337357, #285e46)' }}>
-                  {profile?.avatar_url
-                    ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                    : (profile?.first_name?.[0] || user.email?.[0] || 'U').toUpperCase()
+                <div
+                  className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center text-white text-xs font-bold shrink-0"
+                  style={{ background: 'linear-gradient(135deg, #337357, #285e46)' }}
+                >
+                  {teacherProfile?.photo_url
+                    ? <img src={teacherProfile.photo_url} alt="" className="w-full h-full object-cover" />
+                    : initials
                   }
                 </div>
-                <span className="text-sm font-semibold text-gray-700 max-w-[80px] truncate">
-                  {profile?.first_name || 'Profile'}
-                </span>
+                <span className="text-sm font-semibold text-gray-700 max-w-[80px] truncate">{displayName}</span>
                 <ChevronDown size={13} className="text-gray-400" />
               </button>
 
@@ -98,14 +107,19 @@ export default function Navbar() {
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: -4 }}
                     transition={{ duration: 0.15 }}
-                    className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl border border-gray-100 shadow-lg shadow-gray-200/60 overflow-hidden py-1"
+                    className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl border border-gray-100 shadow-lg shadow-gray-200/60 overflow-hidden py-1"
                     onMouseLeave={() => setUserMenuOpen(false)}
                   >
-                    <Link href="/dashboard" onClick={() => setUserMenuOpen(false)} className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 font-medium">Dashboard</Link>
+                    <Link href="/dashboard/teacher" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 font-medium">
+                      <LayoutDashboard size={14} className="text-gray-400" /> Dashboard
+                    </Link>
                     <Link href="/portfolio" onClick={() => setUserMenuOpen(false)} className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">My Portfolio</Link>
-                    <Link href="/profile/edit" onClick={() => setUserMenuOpen(false)} className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">Edit Profile</Link>
+                    <Link href="/dashboard/teacher/edit-profile" onClick={() => setUserMenuOpen(false)} className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">Edit Profile</Link>
                     <div className="border-t border-gray-100 my-1" />
-                    <button onClick={() => { signOut(); setUserMenuOpen(false) }} className="block w-full text-left px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 font-medium">
+                    <button
+                      onClick={() => { signOut(); setUserMenuOpen(false) }}
+                      className="block w-full text-left px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 font-medium"
+                    >
                       Sign out
                     </button>
                   </motion.div>
@@ -124,12 +138,9 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* Mobile: search icon + hamburger */}
+        {/* Mobile: search + hamburger */}
         <div className="md:hidden flex items-center gap-1 ml-auto">
-          <button
-            onClick={() => setSearchOpen(!searchOpen)}
-            className="p-2 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
-          >
+          <button onClick={() => setSearchOpen(!searchOpen)} className="p-2 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">
             <Search size={18} />
           </button>
           <button
@@ -146,7 +157,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile search bar */}
+      {/* Mobile search */}
       <AnimatePresence>
         {searchOpen && (
           <motion.div
@@ -160,7 +171,7 @@ export default function Navbar() {
                 <input
                   type="text" placeholder="Search artworks, creators..."
                   autoFocus
-                  className="w-full pl-8 pr-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-full outline-none focus:bg-white focus:border-rose-300 transition-all"
+                  className="w-full pl-8 pr-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-full outline-none focus:bg-white focus:border-[#EA9AB2] transition-all"
                   value={searchVal}
                   onChange={e => setSearchVal(e.target.value)}
                 />
@@ -184,7 +195,7 @@ export default function Navbar() {
                   <Link
                     href={link.href}
                     onClick={() => setMenuOpen(false)}
-                    className={`block px-4 py-3 rounded-xl text-sm font-medium transition-colors ${pathname === link.href ? 'bg-brand-50 text-brand-500 font-semibold' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
+                    className={`block px-4 py-3 rounded-xl text-sm font-medium transition-colors ${pathname === link.href ? 'bg-[#337357]/10 text-[#337357] font-semibold' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
                   >
                     {link.label}
                   </Link>
@@ -193,13 +204,13 @@ export default function Navbar() {
               <div className="border-t border-gray-100 mt-2 pt-3">
                 {user ? (
                   <div className="flex items-center justify-between px-2">
-                    <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-2">
+                    <Link href="/dashboard/teacher" onClick={() => setMenuOpen(false)} className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-white text-sm font-bold" style={{ background: 'linear-gradient(135deg, #337357, #285e46)' }}>
-                        {(profile?.first_name?.[0] || 'U').toUpperCase()}
+                        {initials}
                       </div>
-                      <span className="text-sm font-semibold text-gray-800">{profile?.first_name || 'Profile'}</span>
+                      <span className="text-sm font-semibold text-gray-800">{displayName}</span>
                     </Link>
-                    <button onClick={signOut} className="text-sm text-rose-600 font-semibold px-3 py-1.5 rounded-lg hover:bg-rose-50">Sign out</button>
+                    <button onClick={() => { signOut(); setMenuOpen(false) }} className="text-sm text-rose-600 font-semibold px-3 py-1.5 rounded-lg hover:bg-rose-50">Sign out</button>
                   </div>
                 ) : (
                   <div className="flex gap-2 px-2">

@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     // Look up student by NISN (students table uses 'name' single field, not first/last)
     const { data: student, error } = await getAdmin()
       .from('students')
-      .select('nisn, name, grade, class, department, password, photo_url, display_name')
+      .select('id, nisn, name, grade, class, password')
       .eq('nisn', nisn)
       .maybeSingle()
 
@@ -42,12 +42,9 @@ export async function POST(req: NextRequest) {
     // Session payload stored in cookie (no sensitive data)
     const sessionData = {
       role: 'student',
+      id: student.id,
       nisn: student.nisn,
-      name: student.display_name || student.name,
-      grade: student.grade,
-      class: student.class,
-      department: student.department ?? '',
-      photo_url: student.photo_url ?? null,
+      name: student.name,
     }
 
     const res = NextResponse.json({ success: true, redirect: '/dashboard/student' })

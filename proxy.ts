@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 
 function makeSupabase(req: NextRequest, res: NextResponse) {
   return createServerClient(
@@ -7,21 +7,20 @@ function makeSupabase(req: NextRequest, res: NextResponse) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return req.cookies.get(name)?.value
+        getAll() {
+          return req.cookies.getAll()
         },
-        set(name: string, value: string, options: object) {
-          res.cookies.set({ name, value, ...(options as Record<string, unknown>) })
-        },
-        remove(name: string, options: object) {
-          res.cookies.set({ name, value: '', ...(options as Record<string, unknown>) })
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            res.cookies.set(name, value, options)
+          )
         },
       },
     }
   )
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   // ── /login: redirect already-authenticated users ──────────────────────────

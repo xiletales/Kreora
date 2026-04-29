@@ -3,7 +3,6 @@ import './globals.css'
 import { AuthProvider } from '@/context/AuthContext'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
-import LoadingScreen from '@/components/LoadingScreen'
 import { Toaster } from 'react-hot-toast'
 
 export const metadata: Metadata = {
@@ -20,7 +19,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen flex flex-col" suppressHydrationWarning>
         <AuthProvider>
-          <LoadingScreen />
           <Navbar />
           <main className="flex-1">
             {children}

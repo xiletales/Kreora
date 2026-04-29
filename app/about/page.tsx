@@ -112,23 +112,30 @@ export default function AboutPage() {
             </motion.div>
 
             <motion.div
-              className="grid grid-cols-2 gap-4"
+              className="grid grid-cols-1 sm:grid-cols-2 gap-6"
               initial={{ opacity: 0, x: 24 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true, margin: '-60px' }}
               transition={{ duration: 0.6 }}
             >
-              {[
-                { label: '150+', sub: 'Artworks published' },
-                { label: '50+', sub: 'Active students' },
-                { label: '12', sub: 'Awards given' },
-                { label: '2026', sub: 'Year founded' },
-              ].map(s => (
-                <div key={s.label} className="stat-card text-center">
-                  <p className="font-display text-3xl font-bold text-brand-500">{s.label}</p>
-                  <p className="text-xs text-gray-500 mt-1">{s.sub}</p>
-                </div>
-              ))}
+              <div className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-widest text-[#337357] mb-3">Our Story</p>
+                <h3 className="font-display text-xl font-bold text-[#1a2e25] mb-3">From Classroom to Canvas</h3>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  Kreora was born from a simple idea — every student&apos;s creative work deserves to be seen.
+                  What started as a way to organize DKV assignments has grown into a living portfolio
+                  platform used by students and teachers at SMK DBB.
+                </p>
+              </div>
+              <div className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-widest text-[#337357] mb-3">Our Vision</p>
+                <h3 className="font-display text-xl font-bold text-[#1a2e25] mb-3">A Portfolio for Every Student</h3>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  We envision a future where every SMK graduate enters the world with a professional
+                  portfolio that proves their skills. Kreora is the foundation — a place to build,
+                  iterate, and shine throughout their entire school journey.
+                </p>
+              </div>
             </motion.div>
           </div>
         </div>

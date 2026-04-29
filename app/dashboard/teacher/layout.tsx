@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/auth-helpers-nextjs'
 import { redirect } from 'next/navigation'
-import TeacherSidebar from '@/components/TeacherSidebar'
+import TeacherSidebar from './_sidebar'
 
 export default async function TeacherDashboardLayout({
   children,
@@ -34,9 +34,9 @@ export default async function TeacherDashboardLayout({
   if (!teacher) redirect('/login')
 
   return (
-    <div className="flex">
+    <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
       <TeacherSidebar teacher={teacher} />
-      <div className="flex-1 min-w-0 min-h-[calc(100vh-4rem)]">
+      <div className="flex-1 min-w-0 bg-[#F8FAF9] overflow-y-auto">
         {children}
       </div>
     </div>

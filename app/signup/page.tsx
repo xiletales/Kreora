@@ -29,17 +29,17 @@ export default function SignupPage() {
   }
 
   async function handleSubmit() {
-    if (!form.agree) { toast.error('Setujui syarat & ketentuan terlebih dahulu.'); return }
+    if (!form.agree) { toast.error('Please agree to the terms & conditions.'); return }
     if (!form.name || !form.username || !form.password) {
-      toast.error('Nama, username, dan password wajib diisi.')
+      toast.error('Full name, username, and password are required.')
       return
     }
     if (form.password !== form.confirmPassword) {
-      toast.error('Password tidak cocok.')
+      toast.error('Passwords do not match.')
       return
     }
     if (form.password.length < 6) {
-      toast.error('Password minimal 6 karakter.')
+      toast.error('Password must be at least 6 characters.')
       return
     }
 
@@ -61,12 +61,15 @@ export default function SignupPage() {
     }
 
     if (!data.user) {
-      toast.error('Gagal membuat akun. Coba lagi.')
+      toast.error('Failed to create account. Please try again.')
       setLoading(false)
       return
     }
 
-    // Step 2: insert into teachers table
+    // Step 2: sign out immediately so user isn't auto-logged in
+    await supabase.auth.signOut()
+
+    // Step 3: insert into teachers table using service call
     const { error: insertError } = await supabase.from('teachers').insert({
       id: data.user.id,
       username,
@@ -80,11 +83,12 @@ export default function SignupPage() {
     setLoading(false)
 
     if (insertError) {
-      toast.error('Akun dibuat tapi data profil gagal disimpan: ' + insertError.message)
+      toast.error('Account created but profile data failed to save: ' + insertError.message)
+      router.push('/login')
       return
     }
 
-    toast.success('Akun berhasil dibuat! Silakan login.')
+    toast.success('Account created successfully! Please log in.')
     router.push('/login')
   }
 
@@ -98,15 +102,16 @@ export default function SignupPage() {
           className="bg-white rounded-3xl shadow-xl shadow-rose-100 border border-rose-100 p-8"
         >
           <div className="text-center mb-6">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-2 shadow-md" style={{ background: 'linear-gradient(135deg, #337357 0%, #285e46 100%)' }}>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-2 shadow-md"
+              style={{ background: 'linear-gradient(135deg, #337357 0%, #285e46 100%)' }}>
               <Palette size={22} className="text-white" />
             </div>
             <h1 className="font-display text-2xl font-bold text-gray-900">Kreora</h1>
-            <p className="text-sm text-gray-500 mt-1 font-medium">Daftar sebagai Guru</p>
+            <p className="text-sm text-gray-500 mt-1 font-medium">Sign up as a Teacher</p>
             <p className="text-xs text-gray-400 mt-0.5">
-              Sudah punya akun?{' '}
+              Already have an account?{' '}
               <Link href="/login" className="text-brand-600 font-medium hover:underline">
-                Login
+                Log in
               </Link>
             </p>
           </div>
@@ -116,11 +121,11 @@ export default function SignupPage() {
             {/* Full name */}
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">
-                Nama Lengkap <span className="text-rose-500">*</span>
+                Full Name <span className="text-rose-500">*</span>
               </label>
               <input
                 className="kreora-input"
-                placeholder="Nama lengkap"
+                placeholder="Your full name"
                 value={form.name}
                 onChange={e => update('name', e.target.value)}
               />
@@ -133,13 +138,13 @@ export default function SignupPage() {
               </label>
               <input
                 className="kreora-input"
-                placeholder="contoh: bu_sari"
+                placeholder="e.g. ms_sari"
                 value={form.username}
                 onChange={e => update('username', e.target.value.toLowerCase().replace(/\s/g, '_'))}
               />
               {form.username && (
                 <p className="text-xs text-gray-400 mt-1">
-                  Login sebagai: <span className="font-medium text-gray-600">{form.username.toLowerCase()}@kreora.teacher</span>
+                  Login as: <span className="font-medium text-gray-600">{form.username.toLowerCase()}@kreora.teacher</span>
                 </p>
               )}
             </div>
@@ -147,27 +152,27 @@ export default function SignupPage() {
             {/* Grade + Class */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">Kelas Diajar</label>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Grade Taught</label>
                 <select
                   className="kreora-input"
                   value={form.grade}
                   onChange={e => update('grade', e.target.value)}
                 >
-                  <option value="">Pilih kelas</option>
+                  <option value="">Select grade</option>
                   <option value="X">X</option>
                   <option value="XI">XI</option>
                   <option value="XII">XII</option>
-                  <option value="X, XI, XII">Semua kelas</option>
+                  <option value="X, XI, XII">All grades</option>
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">Rombel</label>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">Class</label>
                 <select
                   className="kreora-input"
                   value={form.className}
                   onChange={e => update('className', e.target.value)}
                 >
-                  <option value="">Pilih rombel</option>
+                  <option value="">Select class</option>
                   <option value="A">A</option>
                   <option value="B">B</option>
                   <option value="C">C</option>
@@ -177,10 +182,10 @@ export default function SignupPage() {
 
             {/* Department */}
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Jurusan</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Department</label>
               <input
                 className="kreora-input"
-                placeholder="contoh: Desain Komunikasi Visual"
+                placeholder="e.g. Visual Communication Design"
                 value={form.department}
                 onChange={e => update('department', e.target.value)}
               />
@@ -188,10 +193,10 @@ export default function SignupPage() {
 
             {/* Subject */}
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Mata Pelajaran</label>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Subject</label>
               <input
                 className="kreora-input"
-                placeholder="contoh: Ilustrasi & Desain Poster"
+                placeholder="e.g. Illustration & Poster Design"
                 value={form.subject}
                 onChange={e => update('subject', e.target.value)}
               />
@@ -206,7 +211,7 @@ export default function SignupPage() {
                 <input
                   className="kreora-input pr-10"
                   type={showPass ? 'text' : 'password'}
-                  placeholder="Minimal 6 karakter"
+                  placeholder="At least 6 characters"
                   value={form.password}
                   onChange={e => update('password', e.target.value)}
                 />
@@ -223,13 +228,13 @@ export default function SignupPage() {
             {/* Confirm password */}
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">
-                Konfirmasi Password <span className="text-rose-500">*</span>
+                Confirm Password <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <input
                   className="kreora-input pr-10"
                   type={showConfirm ? 'text' : 'password'}
-                  placeholder="Ulangi password"
+                  placeholder="Repeat your password"
                   value={form.confirmPassword}
                   onChange={e => update('confirmPassword', e.target.value)}
                 />
@@ -252,8 +257,8 @@ export default function SignupPage() {
                 className="mt-0.5 accent-brand-500"
               />
               <span className="text-xs text-gray-500">
-                Saya setuju dengan{' '}
-                <span className="text-brand-600 font-medium">Syarat & Ketentuan</span>
+                I agree to the{' '}
+                <span className="text-brand-600 font-medium">Terms & Conditions</span>
               </span>
             </label>
 
@@ -263,7 +268,7 @@ export default function SignupPage() {
               disabled={loading}
               className="btn-primary w-full mt-2 disabled:opacity-60"
             >
-              {loading ? 'Membuat akun...' : 'Daftar sebagai Guru'}
+              {loading ? 'Creating account...' : 'Sign Up as Teacher'}
             </motion.button>
           </div>
         </motion.div>

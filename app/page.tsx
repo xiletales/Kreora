@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { supabase, Artwork, Profile } from '@/lib/supabase'
-import { ArrowRight, Sparkles, TrendingUp, Image, GraduationCap, Trophy, Star, Users } from 'lucide-react'
+import { ArrowRight, Sparkles, TrendingUp, Users } from 'lucide-react'
 
 interface CategoryGroup {
   name: string; artworks: Artwork[]; filter: string[]
@@ -37,12 +37,6 @@ const CAT_COLORS: Record<string, string> = {
   Logo: 'cat-logo', Digital: 'cat-digital', Animation: 'cat-animation',
 }
 
-const STATS = [
-  { Icon: Image,          value: '150+', label: 'Artworks', color: 'text-rose-600',    bg: 'bg-rose-50' },
-  { Icon: GraduationCap,  value: '50+',  label: 'Students',  color: 'text-violet-600', bg: 'bg-violet-50' },
-  { Icon: Trophy,         value: '12',   label: 'Awards',    color: 'text-amber-600',  bg: 'bg-amber-50' },
-  { Icon: Star,           value: '4.9',  label: 'Rating',    color: 'text-emerald-600',bg: 'bg-emerald-50' },
-]
 
 const FLOAT_IMAGES = [
   { seed: 'hero1', w: 160, h: 210, top: '8%',  right: '4%',  rot: 4,  delay: 1.8 },
@@ -180,7 +174,7 @@ export default function HomePage() {
             <Link href="/gallery" className="btn-primary inline-flex items-center gap-2 text-base px-6 py-3">
               Explore Gallery <ArrowRight size={16} />
             </Link>
-            <Link href="/signup" className="inline-flex items-center gap-2 text-sm font-semibold text-gray-300 border border-white/20 hover:border-white/40 hover:text-white px-6 py-3 rounded-lg transition-all">
+            <Link href="/login" className="inline-flex items-center gap-2 text-sm font-semibold text-gray-300 border border-white/20 hover:border-white/40 hover:text-white px-6 py-3 rounded-lg transition-all">
               Join as Student
             </Link>
           </motion.div>
@@ -202,26 +196,27 @@ export default function HomePage() {
         </motion.div>
       </section>
 
-      {/* ═══════════════ STATS ═══════════════ */}
-      <section className="bg-white py-12 px-4 sm:px-8 border-b border-gray-100">
-        <div className="max-w-screen-xl mx-auto">
-          <motion.div
-            className="grid grid-cols-2 sm:grid-cols-4 gap-6"
-            variants={stagger}
-            initial="hidden"
-            whileInView="show"
+      {/* ═══════════════ BANNER ═══════════════ */}
+      <section className="py-14 px-4 sm:px-8" style={{ background: '#337357' }}>
+        <div className="max-w-screen-xl mx-auto text-center">
+          <motion.p
+            className="font-display text-2xl sm:text-3xl font-bold text-white mb-2 leading-snug"
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.55, ease: 'easeOut' }}
           >
-            {STATS.map(s => (
-              <motion.div key={s.label} variants={fadeUp} className="stat-card text-center">
-                <div className={`w-10 h-10 rounded-xl ${s.bg} flex items-center justify-center mx-auto mb-2`}>
-                  <s.Icon size={18} className={s.color} />
-                </div>
-                <div className={`font-display text-2xl font-bold ${s.color}`}>{s.value}</div>
-                <div className="text-xs text-gray-500 font-medium mt-0.5">{s.label}</div>
-              </motion.div>
-            ))}
-          </motion.div>
+            Empowering student creativity through digital portfolios
+          </motion.p>
+          <motion.p
+            className="text-white/75 text-base"
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.55, delay: 0.1, ease: 'easeOut' }}
+          >
+            Join thousands of students showcasing their best work
+          </motion.p>
         </div>
       </section>
 

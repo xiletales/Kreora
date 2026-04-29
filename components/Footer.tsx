@@ -3,10 +3,10 @@ import { ExternalLink } from 'lucide-react'
 
 const links = {
   Explore: [
+    { label: 'Home', href: '/' },
+    { label: 'About', href: '/about' },
     { label: 'Gallery', href: '/gallery' },
     { label: 'Portfolio', href: '/portfolio' },
-    { label: 'About', href: '/about' },
-    { label: 'Dashboard', href: '/dashboard' },
   ],
   Account: [
     { label: 'Sign Up', href: '/signup' },
