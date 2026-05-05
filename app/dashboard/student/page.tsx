@@ -40,7 +40,7 @@ function statusBadge(deadline: string) {
   const days = Math.ceil(diff / (1000 * 60 * 60 * 24))
   if (diff < 0) return { label: 'Past due', cls: 'bg-rose-100 text-rose-600' }
   if (days <= 3) return { label: `${days}d left`, cls: 'bg-amber-100 text-amber-700' }
-  return { label: 'Active', cls: 'bg-[#337357]/10 text-[#337357]' }
+  return { label: 'Active', cls: 'bg-brand-green text-brand-green-dark' }
 }
 
 const containerVariants = { show: { transition: { staggerChildren: 0.07 } } }
@@ -120,7 +120,7 @@ export default function StudentDashboardPage() {
   if (loading) {
     return (
       <div className="p-6 w-full flex items-center justify-center min-h-[60vh]">
-        <Loader2 size={22} className="animate-spin text-[#337357]" />
+        <Loader2 size={22} className="animate-spin text-brand-green-dark" />
       </div>
     )
   }
@@ -128,8 +128,8 @@ export default function StudentDashboardPage() {
   if (error || !session) {
     return (
       <div className="p-6 w-full flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <p className="font-semibold text-[#1a2e25]">{error ?? 'Session not found'}</p>
-        <p className="text-sm text-[#5a7a6a] mt-1">Please log in to view the student dashboard.</p>
+        <p className="font-semibold text-gray-800">{error ?? 'Session not found'}</p>
+        <p className="text-sm text-gray-600 mt-1">Please log in to view the student dashboard.</p>
       </div>
     )
   }
@@ -138,61 +138,62 @@ export default function StudentDashboardPage() {
 
   return (
     <motion.div
-      className="p-6 w-full"
+      className="w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 md:pt-6 pb-10"
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
     >
       {/* Header */}
-      <div className="mb-8 pl-4 border-l-4 border-[#337357]">
-        <h1 className="text-2xl font-bold text-[#1a2e25]">Welcome, {session.name}</h1>
-        <p className="text-sm text-[#5a7a6a] mt-0.5">
+      <div className="mb-8">
+        <p className="text-xs font-semibold text-brand-pink-dark uppercase tracking-widest mb-1">Student Dashboard</p>
+        <h1 className="text-2xl font-bold text-gray-800">Welcome, {session.name}</h1>
+        <p className="text-sm text-gray-600 mt-0.5">
           {session.grade && session.class ? `Grade ${session.grade} · Class ${session.class}` : 'Student dashboard'}
         </p>
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white border border-[#FFDBE5] rounded-xl p-5 shadow-sm">
-          <div className="w-9 h-9 rounded-lg bg-[#FFDBE5]/40 flex items-center justify-center mb-3">
-            <ClipboardList size={17} className="text-[#E27396]" />
+        <div className="bg-brand-pink border border-brand-green-dark rounded-xl p-5 shadow-sm">
+          <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center mb-3">
+            <ClipboardList size={17} className="text-brand-pink-dark" />
           </div>
-          <p className="text-2xl font-bold text-[#1a2e25]">{assignments.length}</p>
-          <p className="text-xs text-[#5a7a6a] mt-0.5 font-medium">Assignments from teacher</p>
+          <p className="text-2xl font-bold text-gray-800">{assignments.length}</p>
+          <p className="text-xs text-gray-700 mt-0.5 font-medium">Assignments from teacher</p>
         </div>
-        <div className="bg-white border border-[#E5EDE9] rounded-xl p-5 shadow-sm">
-          <div className="w-9 h-9 rounded-lg bg-[#337357]/10 flex items-center justify-center mb-3">
-            <FileText size={17} className="text-[#337357]" />
+        <div className="bg-brand-green border border-brand-green-dark rounded-xl p-5 shadow-sm">
+          <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center mb-3">
+            <FileText size={17} className="text-brand-green-dark" />
           </div>
-          <p className="text-2xl font-bold text-[#1a2e25]">{submissions.length}</p>
-          <p className="text-xs text-[#5a7a6a] mt-0.5 font-medium">Your submissions</p>
+          <p className="text-2xl font-bold text-gray-800">{submissions.length}</p>
+          <p className="text-xs text-gray-700 mt-0.5 font-medium">Your submissions</p>
         </div>
-        <div className="bg-white border border-[#E5EDE9] rounded-xl p-5 shadow-sm">
-          <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center mb-3">
-            <Star size={17} className="text-amber-600" />
+        <div className="bg-white border border-brand-green-dark rounded-xl p-5 shadow-sm">
+          <div className="w-9 h-9 rounded-lg bg-brand-pink flex items-center justify-center mb-3">
+            <Star size={17} className="text-brand-pink-dark" />
           </div>
-          <p className="text-2xl font-bold text-[#1a2e25]">
+          <p className="text-2xl font-bold text-gray-800">
             {submissions.filter(s => s.grade !== null && s.grade !== '').length}
           </p>
-          <p className="text-xs text-[#5a7a6a] mt-0.5 font-medium">Graded</p>
+          <p className="text-xs text-gray-700 mt-0.5 font-medium">Graded</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* My Assignments */}
-        <section className="bg-white border border-[#E5EDE9] rounded-xl shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-[#E5EDE9] bg-[#F8FAF9] flex items-center justify-between">
-            <h2 className="font-semibold text-[#1a2e25] text-sm">My Assignments</h2>
-            <span className="text-xs text-[#5a7a6a]">{assignments.length}</span>
+        <section className="bg-white border border-brand-green-dark rounded-xl shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-brand-green bg-brand-off-white flex items-center justify-between">
+            <h2 className="font-semibold text-gray-800 text-sm">My Assignments</h2>
+            <span className="text-xs text-gray-600">{assignments.length}</span>
           </div>
 
           {assignments.length === 0 ? (
-            <div className="p-6 text-center text-sm text-[#5a7a6a]">
+            <div className="p-6 text-center text-sm text-gray-600">
               No assignments yet from your teacher.
             </div>
           ) : (
             <motion.ul
-              className="divide-y divide-[#E5EDE9]"
+              className="divide-y divide-brand-green"
               variants={containerVariants}
               initial="hidden"
               animate="show"
@@ -203,21 +204,21 @@ export default function StudentDashboardPage() {
                 return (
                   <motion.li key={a.id} variants={itemVariants} className="px-5 py-4 flex items-start gap-3">
                     <div className={`mt-0.5 w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                      submitted ? 'bg-[#337357]/10' : 'bg-[#FFDBE5]/40'
+                      submitted ? 'bg-brand-green' : 'bg-brand-pink'
                     }`}>
-                      <Calendar size={14} className={submitted ? 'text-[#337357]' : 'text-[#E27396]'} />
+                      <Calendar size={14} className={submitted ? 'text-brand-green-dark' : 'text-brand-pink-dark'} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold text-[#1a2e25] truncate">{a.title}</p>
-                        <span className="text-[10px] font-semibold text-[#5a7a6a] bg-[#F8FAF9] border border-[#E5EDE9] px-2 py-0.5 rounded-full">
+                        <p className="text-sm font-semibold text-gray-800 truncate">{a.title}</p>
+                        <span className="text-[10px] font-semibold text-gray-700 bg-brand-off-white border border-brand-green px-2 py-0.5 rounded-full">
                           {a.category}
                         </span>
                       </div>
-                      <p className="text-xs text-[#5a7a6a] mt-0.5">Due {fmt(a.deadline)}</p>
+                      <p className="text-xs text-gray-600 mt-0.5">Due {fmt(a.deadline)}</p>
                     </div>
                     <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full shrink-0 ${
-                      submitted ? 'bg-[#337357]/10 text-[#337357]' : badge.cls
+                      submitted ? 'bg-brand-green text-brand-green-dark' : badge.cls
                     }`}>
                       {submitted ? 'Submitted' : badge.label}
                     </span>
@@ -229,19 +230,19 @@ export default function StudentDashboardPage() {
         </section>
 
         {/* My Submissions */}
-        <section className="bg-white border border-[#E5EDE9] rounded-xl shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-[#E5EDE9] bg-[#F8FAF9] flex items-center justify-between">
-            <h2 className="font-semibold text-[#1a2e25] text-sm">My Submissions</h2>
-            <span className="text-xs text-[#5a7a6a]">{submissions.length}</span>
+        <section className="bg-white border border-brand-green-dark rounded-xl shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-brand-green bg-brand-off-white flex items-center justify-between">
+            <h2 className="font-semibold text-gray-800 text-sm">My Submissions</h2>
+            <span className="text-xs text-gray-600">{submissions.length}</span>
           </div>
 
           {submissions.length === 0 ? (
-            <div className="p-6 text-center text-sm text-[#5a7a6a]">
+            <div className="p-6 text-center text-sm text-gray-600">
               You have not submitted any work yet.
             </div>
           ) : (
             <motion.ul
-              className="divide-y divide-[#E5EDE9]"
+              className="divide-y divide-brand-green"
               variants={containerVariants}
               initial="hidden"
               animate="show"
@@ -253,40 +254,40 @@ export default function StudentDashboardPage() {
                       <img
                         src={s.file_url}
                         alt=""
-                        className="w-12 h-12 rounded-lg object-cover bg-[#F8FAF9] shrink-0"
+                        className="w-12 h-12 rounded-lg object-cover bg-brand-off-white shrink-0"
                       />
                     ) : (
-                      <div className="w-12 h-12 rounded-lg bg-[#F8FAF9] flex items-center justify-center shrink-0">
-                        <FileText size={16} className="text-[#5a7a6a]/40" />
+                      <div className="w-12 h-12 rounded-lg bg-brand-off-white flex items-center justify-center shrink-0">
+                        <FileText size={16} className="text-gray-400" />
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold text-[#1a2e25] truncate">{s.assignmentTitle}</p>
+                        <p className="text-sm font-semibold text-gray-800 truncate">{s.assignmentTitle}</p>
                         {s.assignmentCategory && (
-                          <span className="text-[10px] font-semibold text-[#5a7a6a] bg-[#F8FAF9] border border-[#E5EDE9] px-2 py-0.5 rounded-full">
+                          <span className="text-[10px] font-semibold text-gray-700 bg-brand-off-white border border-brand-green px-2 py-0.5 rounded-full">
                             {s.assignmentCategory}
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-[#5a7a6a]/80 mt-0.5">Submitted {fmt(s.submitted_at)}</p>
+                      <p className="text-[11px] text-gray-500 mt-0.5">Submitted {fmt(s.submitted_at)}</p>
 
                       <div className="flex items-center gap-2 mt-2">
                         {s.grade !== null && s.grade !== '' ? (
-                          <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-[#337357]/10 text-[#337357]">
+                          <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-brand-green text-brand-green-dark">
                             Grade {s.grade}
                           </span>
                         ) : (
-                          <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                          <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-brand-pink text-brand-pink-dark">
                             Awaiting grade
                           </span>
                         )}
                       </div>
 
                       {s.feedback && (
-                        <div className="mt-2.5 bg-[#FFDBE5]/30 border border-[#FFDBE5] rounded-lg px-3 py-2">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-[#E27396] mb-0.5">Teacher feedback</p>
-                          <p className="text-xs text-[#1a2e25] leading-relaxed">{s.feedback}</p>
+                        <div className="mt-2.5 bg-brand-pink/40 border border-brand-pink-dark/30 rounded-lg px-3 py-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-pink-dark mb-0.5">Teacher feedback</p>
+                          <p className="text-xs text-gray-800 leading-relaxed">{s.feedback}</p>
                         </div>
                       )}
                     </div>

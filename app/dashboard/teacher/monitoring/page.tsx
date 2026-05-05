@@ -15,6 +15,7 @@ interface Student {
 
 interface StudentRow extends Student {
   submitted: number
+  graded: number
   lastActive: string | null
   avgGrade: number | null
 }
@@ -43,34 +44,53 @@ export default function MonitoringPage() {
 
   const load = useCallback(async () => {
     if (!user) return
+    setLoading(true)
 
-    const [{ data: students }, { data: asgs }] = await Promise.all([
+    const [{ data: studentsData }, { data: asgs }] = await Promise.all([
       supabase.from('students').select('id, nisn, name, grade, class').eq('added_by', user.id),
       supabase.from('assignments').select('id, title').eq('teacher_id', user.id),
     ])
 
-    const studentList: Student[] = students ?? []
+    const directStudents: Student[] = studentsData ?? []
     const assignmentList: Assignment[] = asgs ?? []
     const assignmentIds = assignmentList.map(a => a.id)
 
-    setStudentCount(studentList.length)
     setAssignments(assignmentList)
 
-    if (studentList.length === 0) { setLoading(false); return }
-
-    const nisns = studentList.map(s => s.nisn)
     let subs: Submission[] = []
-
     if (assignmentIds.length > 0) {
       const { data } = await supabase
         .from('submissions')
         .select('nisn, submitted_at, grade, assignment_id')
-        .in('nisn', nisns)
         .in('assignment_id', assignmentIds)
       subs = data ?? []
     }
-
     setSubmissions(subs)
+
+    // Build the student set: union of teacher's students + nisns that appear in submissions.
+    // This guards against the students table being unavailable / partially blocked by RLS.
+    const studentMap = new Map<string, Student>()
+    directStudents.forEach(s => studentMap.set(s.nisn, s))
+
+    const submissionNisns = Array.from(new Set(subs.map(s => s.nisn)))
+    const missingNisns = submissionNisns.filter(n => !studentMap.has(n))
+
+    if (missingNisns.length > 0) {
+      // Fetch profile data for orphan nisns directly (no added_by filter so RLS isn't a factor here)
+      const { data: extra } = await supabase
+        .from('students')
+        .select('id, nisn, name, grade, class')
+        .in('nisn', missingNisns)
+      ;(extra ?? []).forEach(s => studentMap.set(s.nisn, s as Student))
+
+      // Whatever remains has no profile — render with placeholder name so monitoring isn't blank
+      missingNisns
+        .filter(n => !studentMap.has(n))
+        .forEach(n => studentMap.set(n, { id: n, nisn: n, name: `Student ${n}`, grade: '', class: '' }))
+    }
+
+    const allStudents = Array.from(studentMap.values())
+    setStudentCount(allStudents.length)
 
     const subsByNisn: Record<string, Submission[]> = {}
     subs.forEach(s => {
@@ -78,9 +98,11 @@ export default function MonitoringPage() {
       subsByNisn[s.nisn].push(s)
     })
 
-    const studentRows: StudentRow[] = studentList.map(st => {
+    const studentRows: StudentRow[] = allStudents.map(st => {
       const mySubs = subsByNisn[st.nisn] ?? []
-      const latestSub = [...mySubs].sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime())[0]
+      const latestSub = [...mySubs].sort(
+        (a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime(),
+      )[0]
       const points = mySubs
         .map(s => (s.grade ? GRADE_POINTS[s.grade] : null))
         .filter((p): p is number => typeof p === 'number')
@@ -90,6 +112,7 @@ export default function MonitoringPage() {
       return {
         ...st,
         submitted:  mySubs.length,
+        graded:     points.length,
         lastActive: latestSub?.submitted_at ?? null,
         avgGrade,
       }
@@ -127,9 +150,12 @@ export default function MonitoringPage() {
     return new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
   }
 
-  function gradeLabel(avg: number | null) {
+  function avgLetter(avg: number | null) {
     if (avg === null) return '—'
-    return avg.toFixed(1)
+    if (avg >= 3.5) return `A (${avg.toFixed(1)})`
+    if (avg >= 2.5) return `B (${avg.toFixed(1)})`
+    if (avg >= 1.5) return `C (${avg.toFixed(1)})`
+    return `D (${avg.toFixed(1)})`
   }
 
   function truncate(s: string, n: number) {
@@ -162,12 +188,9 @@ export default function MonitoringPage() {
           <p className="text-xs text-[#5a7a6a] mb-5">How many students have submitted each assignment</p>
 
           <div className="flex items-end gap-3 h-56 pl-10 relative">
-            {/* Y-axis label */}
             <span className="absolute left-0 top-1/2 -translate-y-1/2 -rotate-90 text-[10px] font-semibold uppercase tracking-wide text-[#5a7a6a]">
               Submissions
             </span>
-
-            {/* Y-axis tick: max */}
             <span className="absolute left-6 top-0 text-[10px] text-[#5a7a6a]">{maxCount}</span>
             <span className="absolute left-6 bottom-7 text-[10px] text-[#5a7a6a]">0</span>
 
@@ -221,8 +244,10 @@ export default function MonitoringPage() {
         </div>
       ) : rows.length === 0 ? (
         <div className="bg-white border border-[#E5EDE9] rounded-xl shadow-sm p-8 text-center">
-          <p className="font-semibold text-[#1a2e25]">No students yet.</p>
-          <p className="text-sm text-[#5a7a6a] mt-1">Add students from the Add Students page.</p>
+          <p className="font-semibold text-[#1a2e25]">No student activity yet.</p>
+          <p className="text-sm text-[#5a7a6a] mt-1">
+            Add students from the Add Students page or wait for submissions to come in.
+          </p>
         </div>
       ) : (
         <div className="bg-white border border-[#E5EDE9] rounded-xl shadow-sm overflow-hidden">
@@ -235,9 +260,9 @@ export default function MonitoringPage() {
                 <tr className="border-b border-[#E5EDE9] text-xs text-[#5a7a6a] font-semibold uppercase tracking-wide">
                   <th className="text-left px-5 py-3">Name</th>
                   <th className="text-left px-4 py-3 hidden sm:table-cell">NISN</th>
-                  <th className="text-left px-4 py-3 hidden md:table-cell">Grade</th>
                   <th className="text-left px-4 py-3 hidden md:table-cell">Class</th>
                   <th className="text-left px-4 py-3">Submitted</th>
+                  <th className="text-left px-4 py-3 hidden md:table-cell">Graded</th>
                   <th className="text-left px-4 py-3 hidden lg:table-cell">Avg Grade</th>
                   <th className="text-left px-4 py-3 hidden lg:table-cell">Last Active</th>
                 </tr>
@@ -257,8 +282,9 @@ export default function MonitoringPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden sm:table-cell text-[#5a7a6a]">{st.nisn}</td>
-                    <td className="px-4 py-3 hidden md:table-cell text-[#5a7a6a]">{st.grade}</td>
-                    <td className="px-4 py-3 hidden md:table-cell text-[#5a7a6a]">{st.class}</td>
+                    <td className="px-4 py-3 hidden md:table-cell text-[#5a7a6a]">
+                      {st.grade && st.class ? `${st.grade} ${st.class}` : st.class || '—'}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full ${
                         st.submitted > 0
@@ -268,8 +294,11 @@ export default function MonitoringPage() {
                         {st.submitted}/{assignments.length}
                       </span>
                     </td>
+                    <td className="px-4 py-3 hidden md:table-cell text-[#5a7a6a] text-xs font-medium">
+                      {st.graded}
+                    </td>
                     <td className="px-4 py-3 hidden lg:table-cell text-[#5a7a6a] text-xs font-medium">
-                      {gradeLabel(st.avgGrade)}
+                      {avgLetter(st.avgGrade)}
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell text-[#5a7a6a] text-xs">
                       {st.lastActive ? fmtDate(st.lastActive) : 'No activity'}

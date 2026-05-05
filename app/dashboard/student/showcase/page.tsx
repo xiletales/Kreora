@@ -24,13 +24,13 @@ export default async function StudentShowcasePage() {
   const submissions = rawSubmissions ?? []
   if (submissions.length === 0) {
     return (
-      <div className="p-6 sm:p-8 max-w-3xl">
+      <div className="w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 md:pt-6 pb-10">
         <div className="mb-8">
-          <p className="text-xs font-semibold text-[#E27396] uppercase tracking-widest mb-1">Student Dashboard</p>
-          <h1 className="font-display text-2xl font-bold text-[#1a2e25]">Showcase</h1>
+          <p className="text-xs font-semibold text-brand-pink-dark uppercase tracking-widest mb-1">Student Dashboard</p>
+          <h1 className="font-display text-2xl font-bold text-gray-800">Showcase</h1>
         </div>
-        <div className="bg-white border border-[#EA9AB2]/40 rounded-2xl p-8 text-center">
-          <p className="text-sm text-[#5a7a6a]">No submissions yet.</p>
+        <div className="bg-white border border-brand-green-dark rounded-2xl p-8 text-center">
+          <p className="text-sm text-gray-600">No submissions yet.</p>
         </div>
       </div>
     )
@@ -78,11 +78,11 @@ export default async function StudentShowcasePage() {
   }))
 
   return (
-    <div className="p-6 sm:p-8 max-w-3xl">
+    <div className="w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 md:pt-6 pb-10">
       <div className="mb-8">
-        <p className="text-xs font-semibold text-[#E27396] uppercase tracking-widest mb-1">Student Dashboard</p>
-        <h1 className="font-display text-2xl font-bold text-[#1a2e25]">Showcase</h1>
-        <p className="text-sm text-[#5a7a6a] mt-1">
+        <p className="text-xs font-semibold text-brand-pink-dark uppercase tracking-widest mb-1">Student Dashboard</p>
+        <h1 className="font-display text-2xl font-bold text-gray-800">Showcase</h1>
+        <p className="text-sm text-gray-600 mt-1">
           {data.filter(s => s.is_published).length} of {data.length} submissions published
         </p>
       </div>

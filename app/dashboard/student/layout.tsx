@@ -21,9 +21,9 @@ export default async function StudentDashboardLayout({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#FFDBE5]" suppressHydrationWarning>
+    <div className="flex h-screen overflow-hidden bg-brand-off-white" suppressHydrationWarning>
       <StudentSidebar session={session} />
-      <main className="flex-1 h-full overflow-y-auto bg-[#FFDBE5]">
+      <main className="flex-1 h-full w-full overflow-y-auto bg-brand-off-white">
         {children}
       </main>
     </div>

@@ -40,11 +40,11 @@ export default async function StudentAssignmentsPage() {
   const submissions = rawSubmissions ?? []
 
   return (
-    <div className="p-6 sm:p-8 max-w-5xl">
+    <div className="w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 md:pt-6 pb-10">
       <div className="mb-8">
-        <p className="text-xs font-semibold text-[#E27396] uppercase tracking-widest mb-1">Student Dashboard</p>
-        <h1 className="font-display text-2xl font-bold text-[#1a2e25]">Assignments</h1>
-        <p className="text-sm text-[#5a7a6a] mt-1">View, filter, and submit your assignments.</p>
+        <p className="text-xs font-semibold text-brand-pink-dark uppercase tracking-widest mb-1">Student Dashboard</p>
+        <h1 className="font-display text-2xl font-bold text-gray-800">Assignments</h1>
+        <p className="text-sm text-gray-600 mt-1">View, filter, and submit your assignments.</p>
       </div>
 
       <AssignmentsClient assignments={assignments} submissions={submissions} />

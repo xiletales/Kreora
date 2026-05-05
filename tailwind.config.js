@@ -7,7 +7,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Override rose scale → new pink palette
+        // Override rose scale → kept for legacy usage
         rose: {
           50:  '#fff5f8',
           100: '#FFDBE5',
@@ -21,8 +21,15 @@ module.exports = {
           900: '#7a2245',
           950: '#4d1430',
         },
-        // New brand green
+        // Soft pastel brand palette
         brand: {
+          pink: '#F9D5E5',
+          'pink-dark': '#F0A8C4',
+          green: '#D4EDDA',
+          'green-dark': '#A8D5B5',
+          white: '#FFFFFF',
+          'off-white': '#F8FAFB',
+          // Numeric scale retained so existing brand-50/500/600 references keep working
           50:  '#f0f7f2',
           100: '#d1ead4',
           200: '#a8d4ae',
