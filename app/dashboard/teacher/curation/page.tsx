@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { Palette, Download, Eye, EyeOff, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import PageTransition from '@/components/PageTransition'
 
 interface Artwork {
   id: string
@@ -30,27 +31,44 @@ export default function CurationPage() {
 
   const load = useCallback(async () => {
     if (!user) return
+    setLoading(true)
 
+    // 1. This teacher's assignments
+    const { data: assignments } = await supabase
+      .from('assignments')
+      .select('id, title, category')
+      .eq('teacher_id', user.id)
+
+    if (!assignments || assignments.length === 0) {
+      setArtworks([])
+      setLoading(false)
+      return
+    }
+    const assignmentMap = Object.fromEntries(assignments.map(a => [a.id, a]))
+    const assignmentIds = assignments.map(a => a.id)
+
+    // 2. Submissions for those assignments
+    const { data: submissions, error } = await supabase
+      .from('submissions')
+      .select('id, nisn, file_url, submitted_at, published, assignment_id')
+      .in('assignment_id', assignmentIds)
+      .order('submitted_at', { ascending: false })
+
+    if (error) {
+      toast.error('Failed to load artworks.')
+      setLoading(false)
+      return
+    }
+
+    // 3. Student names (for display) — by added_by
     const { data: students } = await supabase
       .from('students')
       .select('nisn, name')
-      .eq('teacher_id', user.id)
+      .eq('added_by', user.id)
+    const studentMap = Object.fromEntries((students ?? []).map(s => [s.nisn, s.name]))
 
-    if (!students || students.length === 0) { setLoading(false); return }
-
-    const nisns = students.map(s => s.nisn)
-    const studentMap = Object.fromEntries(students.map(s => [s.nisn, s.name]))
-
-    const { data: submissions, error } = await supabase
-      .from('submissions')
-      .select('id, nisn, file_url, submitted_at, published, assignments(title, category)')
-      .in('nisn', nisns)
-      .order('submitted_at', { ascending: false })
-
-    if (error) { toast.error('Failed to load artworks.'); setLoading(false); return }
-
-    const built: Artwork[] = (submissions ?? []).map((s: any) => {
-      const asgn = Array.isArray(s.assignments) ? s.assignments[0] : s.assignments
+    const built: Artwork[] = (submissions ?? []).map(s => {
+      const asgn = assignmentMap[s.assignment_id]
       return {
         id:               s.id,
         studentName:      studentMap[s.nisn] ?? 'Student',
@@ -93,7 +111,7 @@ export default function CurationPage() {
   const publishedCount = artworks.filter(a => a.published).length
 
   return (
-    <div className="p-4 sm:p-8 max-w-5xl mx-auto">
+    <PageTransition className="p-6 w-full">
       <div className="mb-8 pl-4 border-l-4 border-[#337357]">
         <h1 className="text-2xl font-bold text-[#1a2e25]">Curation</h1>
         <p className="text-sm text-[#5a7a6a] mt-0.5">
@@ -127,7 +145,6 @@ export default function CurationPage() {
             const badge = statusBadge(art.published)
             return (
               <div key={art.id} className="bg-white border border-[#E5EDE9] rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col">
-                {/* Artwork preview */}
                 <div className="h-40 bg-[#F8FAF9] flex items-center justify-center relative overflow-hidden">
                   {art.fileUrl ? (
                     <img
@@ -144,18 +161,16 @@ export default function CurationPage() {
                   </span>
                 </div>
 
-                {/* Info */}
                 <div className="p-4 flex-1 flex flex-col">
                   <p className="font-semibold text-[#1a2e25] text-sm truncate">{art.assignmentTitle}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-xs text-[#5a7a6a]">{art.studentName}</span>
-                    {art.category && (
-                      <>
-                        <span className="text-[#E5EDE9]">·</span>
-                        <span className="text-xs text-[#5a7a6a]">{art.category}</span>
-                      </>
-                    )}
+                    <span className="text-[#E5EDE9]">·</span>
+                    <span className="text-xs text-[#5a7a6a]">NISN {art.nisn}</span>
                   </div>
+                  {art.category && (
+                    <span className="text-[10px] text-[#5a7a6a] mt-0.5">{art.category}</span>
+                  )}
                   <p className="text-[10px] text-[#5a7a6a]/60 mt-0.5">
                     {new Date(art.submittedAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </p>
@@ -195,6 +210,6 @@ export default function CurationPage() {
           })}
         </div>
       )}
-    </div>
+    </PageTransition>
   )
 }

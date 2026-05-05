@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/context/AuthContext'
-import Navbar from '@/components/Navbar'
-import Footer from '@/components/Footer'
+import ConditionalLayout from '@/components/ConditionalLayout'
+import LoadingScreen from '@/components/LoadingScreen'
 import { Toaster } from 'react-hot-toast'
 
 export const metadata: Metadata = {
@@ -18,12 +18,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body className="min-h-screen flex flex-col" suppressHydrationWarning>
+        <LoadingScreen />
         <AuthProvider>
-          <Navbar />
-          <main className="flex-1">
-            {children}
-          </main>
-          <Footer />
+          <ConditionalLayout>{children}</ConditionalLayout>
           <Toaster
             position="top-right"
             toastOptions={{
@@ -33,7 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 color: '#374151',
                 fontFamily: 'DM Sans, sans-serif',
               },
-              success: { iconTheme: { primary: '#e11d48', secondary: '#fff' } },
+              success: { iconTheme: { primary: '#E27396', secondary: '#fff' } },
             }}
           />
         </AuthProvider>

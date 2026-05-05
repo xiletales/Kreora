@@ -27,8 +27,8 @@ export default async function StudentEditProfilePage() {
   return (
     <div className="p-6 sm:p-8 max-w-3xl">
       <div className="mb-8">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Dashboard Siswa</p>
-        <h1 className="font-display text-2xl font-bold text-gray-900">Edit Profil</h1>
+        <p className="text-xs font-semibold text-[#E27396] uppercase tracking-widest mb-1">Student Dashboard</p>
+        <h1 className="font-display text-2xl font-bold text-[#1a2e25]">Edit Profile</h1>
       </div>
 
       <EditProfileClient

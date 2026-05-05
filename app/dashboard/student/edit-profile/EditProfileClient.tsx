@@ -56,7 +56,7 @@ export default function EditProfileClient({
     const json = await res.json()
 
     setSaving(false)
-    if (!res.ok) { setError(json.error ?? 'Gagal menyimpan.'); return }
+    if (!res.ok) { setError(json.error ?? 'Failed to save.'); return }
 
     setSaved(true)
     setFile(null)
@@ -67,14 +67,13 @@ export default function EditProfileClient({
   return (
     <div className="space-y-6 max-w-lg">
 
-      {/* Avatar */}
-      <div className="bg-white border border-gray-100 rounded-2xl p-6">
-        <h2 className="font-semibold text-gray-900 text-sm mb-5">Foto Profil</h2>
+      <div className="bg-white border border-[#EA9AB2]/40 rounded-2xl p-6">
+        <h2 className="font-semibold text-[#1a2e25] text-sm mb-5">Profile Photo</h2>
         <div className="flex items-center gap-5">
           <div className="relative shrink-0">
             <div
               className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center text-white text-xl font-bold"
-              style={{ background: 'linear-gradient(135deg, #337357, #285e46)' }}
+              style={{ background: 'linear-gradient(135deg, #E27396, #EA9AB2)' }}
             >
               {preview
                 ? <img src={preview} alt="" className="w-full h-full object-cover" />
@@ -83,59 +82,57 @@ export default function EditProfileClient({
             </div>
             <button
               onClick={() => fileRef.current?.click()}
-              className="absolute -bottom-1 -right-1 w-7 h-7 bg-brand-500 hover:bg-brand-600 rounded-full flex items-center justify-center shadow-sm transition-colors"
+              className="absolute -bottom-1 -right-1 w-7 h-7 bg-[#337357] hover:bg-[#2a5e47] rounded-full flex items-center justify-center shadow-sm transition-colors"
             >
               <Camera size={13} className="text-white" />
             </button>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
           </div>
           <div>
-            <p className="text-sm font-semibold text-gray-900">{name}</p>
-            <p className="text-xs text-gray-400 mt-0.5">NISN: {nisn}</p>
-            <p className="text-xs text-gray-400">Kelas {grade} {studentClass}{department ? ` · ${department}` : ''}</p>
+            <p className="text-sm font-semibold text-[#1a2e25]">{name}</p>
+            <p className="text-xs text-[#5a7a6a] mt-0.5">NISN: {nisn}</p>
+            <p className="text-xs text-[#5a7a6a]">Grade {grade} {studentClass}{department ? ` · ${department}` : ''}</p>
             <button
               onClick={() => fileRef.current?.click()}
-              className="mt-2 text-xs font-medium text-brand-600 hover:text-brand-700"
+              className="mt-2 text-xs font-medium text-[#E27396] hover:text-[#c25a7d]"
             >
-              Ganti foto
+              Change photo
             </button>
           </div>
         </div>
       </div>
 
-      {/* Read-only info */}
-      <div className="bg-white border border-gray-100 rounded-2xl p-6">
-        <h2 className="font-semibold text-gray-900 text-sm mb-5">Informasi Akun</h2>
+      <div className="bg-white border border-[#EA9AB2]/40 rounded-2xl p-6">
+        <h2 className="font-semibold text-[#1a2e25] text-sm mb-5">Account Information</h2>
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">NISN</label>
-            <div className="px-3 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm text-gray-400 select-none">
+            <label className="block text-xs font-medium text-[#5a7a6a] mb-1.5">NISN</label>
+            <div className="px-3 py-2.5 bg-[#FFDBE5]/30 border border-[#FFDBE5] rounded-xl text-sm text-[#5a7a6a] select-none">
               {nisn}
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">Nama Lengkap</label>
-            <div className="px-3 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm text-gray-400 select-none">
+            <label className="block text-xs font-medium text-[#5a7a6a] mb-1.5">Full Name</label>
+            <div className="px-3 py-2.5 bg-[#FFDBE5]/30 border border-[#FFDBE5] rounded-xl text-sm text-[#5a7a6a] select-none">
               {name}
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">Kelas</label>
-            <div className="px-3 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm text-gray-400 select-none">
+            <label className="block text-xs font-medium text-[#5a7a6a] mb-1.5">Class</label>
+            <div className="px-3 py-2.5 bg-[#FFDBE5]/30 border border-[#FFDBE5] rounded-xl text-sm text-[#5a7a6a] select-none">
               {grade} {studentClass}{department ? ` — ${department}` : ''}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Editable info */}
-      <div className="bg-white border border-gray-100 rounded-2xl p-6">
-        <h2 className="font-semibold text-gray-900 text-sm mb-5">Informasi Profil</h2>
+      <div className="bg-white border border-[#EA9AB2]/40 rounded-2xl p-6">
+        <h2 className="font-semibold text-[#1a2e25] text-sm mb-5">Profile Information</h2>
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">
-              Nama Tampilan
-              <span className="text-gray-400 font-normal ml-1">(opsional)</span>
+            <label className="block text-xs font-medium text-[#1a2e25] mb-1.5">
+              Display Name
+              <span className="text-[#5a7a6a] font-normal ml-1">(optional)</span>
             </label>
             <input
               type="text"
@@ -143,21 +140,21 @@ export default function EditProfileClient({
               onChange={e => setDisplayName(e.target.value)}
               placeholder={name}
               maxLength={60}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-transparent transition"
+              className="w-full px-3 py-2.5 border border-[#FFDBE5] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E27396]/40 focus:border-transparent transition"
             />
-            <p className="text-xs text-gray-400 mt-1">Nama ini akan ditampilkan di sidebar menggantikan nama lengkap.</p>
+            <p className="text-xs text-[#5a7a6a] mt-1">This name will appear in the sidebar instead of your full name.</p>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">Bio</label>
+            <label className="block text-xs font-medium text-[#1a2e25] mb-1.5">Bio</label>
             <textarea
               value={bio}
               onChange={e => setBio(e.target.value)}
-              placeholder="Ceritakan sedikit tentang dirimu..."
+              placeholder="Tell us a little about yourself..."
               rows={4}
               maxLength={200}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-transparent transition resize-none"
+              className="w-full px-3 py-2.5 border border-[#FFDBE5] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E27396]/40 focus:border-transparent transition resize-none"
             />
-            <p className="text-xs text-gray-400 mt-1">{bio.length} / 200 karakter</p>
+            <p className="text-xs text-[#5a7a6a] mt-1">{bio.length} / 200 characters</p>
           </div>
         </div>
       </div>
@@ -167,13 +164,13 @@ export default function EditProfileClient({
       <button
         onClick={handleSave}
         disabled={saving}
-        className="flex items-center justify-center gap-2 w-full px-4 py-3 text-sm font-semibold bg-brand-500 text-white rounded-xl hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="flex items-center justify-center gap-2 w-full px-4 py-3 text-sm font-semibold bg-[#337357] text-white rounded-xl hover:bg-[#2a5e47] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         {saving
-          ? <><Loader2 size={15} className="animate-spin" /> Menyimpan...</>
+          ? <><Loader2 size={15} className="animate-spin" /> Saving...</>
           : saved
-          ? <><Check size={15} /> Tersimpan</>
-          : 'Simpan Perubahan'
+          ? <><Check size={15} /> Saved</>
+          : 'Save Changes'
         }
       </button>
     </div>

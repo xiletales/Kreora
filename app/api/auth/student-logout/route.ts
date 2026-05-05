@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-export async function POST() {
+function clearSession() {
   const res = NextResponse.json({ success: true })
   res.cookies.set('kreora_student_session', '', {
     httpOnly: true,
@@ -11,3 +11,6 @@ export async function POST() {
   })
   return res
 }
+
+export async function POST()   { return clearSession() }
+export async function DELETE() { return clearSession() }

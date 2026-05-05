@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/auth-helpers-nextjs'
 import { redirect } from 'next/navigation'
 import { Users, ClipboardList, FileText, MessageSquare } from 'lucide-react'
+import PageTransition from '@/components/PageTransition'
 
 const getAdmin = () => {
   const { createClient } = require('@supabase/supabase-js')
@@ -65,7 +66,7 @@ export default async function TeacherOverviewPage() {
   ]
 
   return (
-    <div className="p-4 sm:p-8 max-w-[1200px] mx-auto">
+    <PageTransition className="p-6 w-full">
       <div className="mb-8 pl-4 border-l-4 border-[#337357]">
         <h1 className="text-2xl font-bold text-[#1a2e25]">Welcome back, {firstName}</h1>
         <p className="text-sm text-[#5a7a6a] mt-0.5">
@@ -119,6 +120,6 @@ export default async function TeacherOverviewPage() {
           </div>
         )}
       </div>
-    </div>
+    </PageTransition>
   )
 }

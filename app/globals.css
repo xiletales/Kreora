@@ -206,17 +206,17 @@ h1, h2, h3, h4, .font-display {
    HERO
 ═══════════════════════════════ */
 .hero-dark {
-  background: #0C0C0F;
+  background: #337357;
   position: relative; overflow: hidden;
 }
 .hero-badge {
   display: inline-flex; align-items: center; gap: 6px;
-  background: rgba(51,115,87,0.14);
-  border: 1px solid rgba(51,115,87,0.35);
+  background: rgba(255,219,229,0.18);
+  border: 1px solid rgba(255,219,229,0.4);
   border-radius: 99px;
   padding: 5px 14px;
   font-size: 0.75rem; font-weight: 600;
-  color: #6D9F71; letter-spacing: 0.04em;
+  color: #FFDBE5; letter-spacing: 0.04em;
 }
 
 /* ═══════════════════════════════

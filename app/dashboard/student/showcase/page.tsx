@@ -15,7 +15,6 @@ export default async function StudentShowcasePage() {
 
   const { nisn } = JSON.parse(raw)
 
-  // Submissions with assignment title
   const { data: rawSubmissions } = await getAdmin()
     .from('submissions')
     .select('id, assignment_id, file_url, grade, is_published, created_at, assignments(title)')
@@ -27,17 +26,18 @@ export default async function StudentShowcasePage() {
     return (
       <div className="p-6 sm:p-8 max-w-3xl">
         <div className="mb-8">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Dashboard Siswa</p>
-          <h1 className="font-display text-2xl font-bold text-gray-900">Showcase</h1>
+          <p className="text-xs font-semibold text-[#E27396] uppercase tracking-widest mb-1">Student Dashboard</p>
+          <h1 className="font-display text-2xl font-bold text-[#1a2e25]">Showcase</h1>
         </div>
-        <p className="text-sm text-gray-400">Belum ada tugas yang dikumpulkan.</p>
+        <div className="bg-white border border-[#EA9AB2]/40 rounded-2xl p-8 text-center">
+          <p className="text-sm text-[#5a7a6a]">No submissions yet.</p>
+        </div>
       </div>
     )
   }
 
   const submissionIds = submissions.map(s => s.id)
 
-  // Feedbacks + like counts in parallel (likes table may not exist yet — graceful)
   const [{ data: rawFeedbacks }, likeResult] = await Promise.all([
     getAdmin()
       .from('feedbacks')
@@ -52,13 +52,11 @@ export default async function StudentShowcasePage() {
   const feedbacks = rawFeedbacks ?? []
   const likeRows = likeResult.data ?? []
 
-  // Build like count map
   const likeCountMap = new Map<string, number>()
   likeRows.forEach(r => {
     likeCountMap.set(r.submission_id, (likeCountMap.get(r.submission_id) ?? 0) + 1)
   })
 
-  // Build feedback map
   const feedbackMap = new Map<string, typeof feedbacks>()
   feedbacks.forEach(f => {
     const arr = feedbackMap.get(f.submission_id) ?? []
@@ -70,7 +68,7 @@ export default async function StudentShowcasePage() {
     id: s.id,
     assignment_id: s.assignment_id,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    assignment_title: (s.assignments as any)?.title ?? 'Tugas',
+    assignment_title: (s.assignments as any)?.title ?? 'Assignment',
     file_url: s.file_url ?? null,
     grade: s.grade ?? null,
     is_published: s.is_published ?? false,
@@ -82,10 +80,10 @@ export default async function StudentShowcasePage() {
   return (
     <div className="p-6 sm:p-8 max-w-3xl">
       <div className="mb-8">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Dashboard Siswa</p>
-        <h1 className="font-display text-2xl font-bold text-gray-900">Showcase</h1>
-        <p className="text-sm text-gray-400 mt-1">
-          {data.filter(s => s.is_published).length} dari {data.length} submission dipublikasikan
+        <p className="text-xs font-semibold text-[#E27396] uppercase tracking-widest mb-1">Student Dashboard</p>
+        <h1 className="font-display text-2xl font-bold text-[#1a2e25]">Showcase</h1>
+        <p className="text-sm text-[#5a7a6a] mt-1">
+          {data.filter(s => s.is_published).length} of {data.length} submissions published
         </p>
       </div>
 

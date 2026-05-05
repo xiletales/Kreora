@@ -71,17 +71,86 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.from('artworks').select('*, profiles(*)').eq('status', 'published')
-      .order('likes', { ascending: false }).limit(12)
-      .then(({ data }) => {
-        if (data && data.length > 0) setArtworks(data as Artwork[])
-        setLoading(false)
-      }, () => setLoading(false))
+    async function loadFromSubmissions() {
+      const { data: subs, error } = await supabase
+        .from('submissions')
+        .select('id, file_url, nisn, published, submitted_at, assignments(title, category, description)')
+        .eq('published', true)
+        .order('submitted_at', { ascending: false })
+        .limit(12)
 
-    supabase.from('profiles').select('*').eq('role', 'student').limit(12)
-      .then(({ data }) => {
-        if (data && data.length > 0) setStudents(data as Profile[])
-      }, () => {})
+      if (error || !subs || subs.length === 0) {
+        setLoading(false)
+        return
+      }
+
+      const nisns = Array.from(new Set(subs.map(s => s.nisn)))
+      const { data: studentRows } = await supabase
+        .from('students')
+        .select('nisn, name, grade, class')
+        .in('nisn', nisns)
+      const studentMap = Object.fromEntries(
+        (studentRows ?? []).map(s => [s.nisn, s])
+      )
+
+      const mapped: Artwork[] = subs
+        .filter(s => s.file_url)
+        .map(s => {
+          const asgn: any = Array.isArray(s.assignments) ? s.assignments[0] : s.assignments
+          const stu: any = studentMap[s.nisn]
+          const fullName = stu?.name ?? `Student ${s.nisn}`
+          const [first, ...rest] = fullName.split(' ')
+          return {
+            id:          s.id,
+            title:       asgn?.title ?? 'Untitled',
+            category:    asgn?.category ?? '',
+            status:      'published',
+            image_url:   s.file_url ?? '',
+            likes:       0,
+            creator_id:  s.nisn,
+            description: asgn?.description ?? '',
+            profiles: {
+              id: '', username: '', email: '', role: 'student',
+              first_name: first ?? 'Student',
+              last_name:  rest.join(' '),
+              grade: stu?.grade,
+              class: stu?.class,
+              created_at: '',
+            },
+            created_at: s.submitted_at,
+            updated_at: '',
+          } as Artwork
+        })
+
+      if (mapped.length > 0) setArtworks(mapped)
+      setLoading(false)
+    }
+
+    async function loadStudents() {
+      const { data } = await supabase
+        .from('students')
+        .select('nisn, name, grade, class')
+        .limit(8)
+      if (!data || data.length === 0) return
+      const mapped: Profile[] = data.map(s => {
+        const [first, ...rest] = (s.name ?? '').split(' ')
+        return {
+          id: s.nisn,
+          username: s.nisn,
+          first_name: first || 'Student',
+          last_name: rest.join(' '),
+          email: '',
+          role: 'student',
+          grade: s.grade ?? '',
+          class: s.class ?? '',
+          created_at: '',
+        }
+      })
+      setStudents(mapped)
+    }
+
+    loadFromSubmissions()
+    loadStudents()
   }, [])
 
   return (
@@ -113,8 +182,8 @@ export default function HomePage() {
         {FLOAT_IMAGES.map((img, i) => (
           <motion.div
             key={i}
-            className="hidden lg:block absolute rounded-xl overflow-hidden shadow-2xl shadow-black/40"
-            style={{ top: img.top, right: img.right, width: img.w, height: img.h }}
+            className="hidden lg:block absolute rounded-xl overflow-hidden shadow-2xl"
+            style={{ top: img.top, right: img.right, width: img.w, height: img.h, boxShadow: '0 25px 50px -12px rgba(26,46,37,0.45)' }}
             initial={{ opacity: 0, y: 20, rotate: img.rot }}
             animate={{ opacity: 0.85, y: 0, rotate: img.rot }}
             transition={{ duration: 0.8, delay: img.delay, ease: [0.22, 1, 0.36, 1] }}
@@ -126,7 +195,7 @@ export default function HomePage() {
               animate={{ y: [-6, 6, -6] }}
               transition={{ duration: 5 + i, repeat: Infinity, ease: 'easeInOut' }}
             />
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.3) 0%, transparent 50%)' }} />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(26,46,37,0.32) 0%, transparent 50%)' }} />
           </motion.div>
         ))}
 
@@ -156,7 +225,7 @@ export default function HomePage() {
           </motion.h1>
 
           <motion.p
-            className="text-gray-400 text-lg max-w-lg mb-10 leading-relaxed"
+            className="text-white/80 text-lg max-w-lg mb-10 leading-relaxed"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 1.8, ease: [0.22, 1, 0.36, 1] }}
@@ -174,7 +243,7 @@ export default function HomePage() {
             <Link href="/gallery" className="btn-primary inline-flex items-center gap-2 text-base px-6 py-3">
               Explore Gallery <ArrowRight size={16} />
             </Link>
-            <Link href="/login" className="inline-flex items-center gap-2 text-sm font-semibold text-gray-300 border border-white/20 hover:border-white/40 hover:text-white px-6 py-3 rounded-lg transition-all">
+            <Link href="/login" className="inline-flex items-center gap-2 text-sm font-semibold text-white/90 border border-white/30 hover:border-white/60 hover:text-white px-6 py-3 rounded-lg transition-all">
               Join as Student
             </Link>
           </motion.div>
@@ -187,9 +256,9 @@ export default function HomePage() {
           animate={{ opacity: 1 }}
           transition={{ delay: 2.3 }}
         >
-          <span className="text-gray-600 text-xs font-medium tracking-widest uppercase">Scroll</span>
+          <span className="text-white/50 text-xs font-medium tracking-widest uppercase">Scroll</span>
           <motion.div
-            className="w-px h-12 bg-gradient-to-b from-gray-600 to-transparent"
+            className="w-px h-12 bg-gradient-to-b from-white/50 to-transparent"
             animate={{ scaleY: [0.3, 1, 0.3] }}
             transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
           />
@@ -302,60 +371,68 @@ export default function HomePage() {
       </section>
 
       {/* ═══════════════ CATEGORY SECTIONS ═══════════════ */}
-      {CATEGORIES.map((group, gi) => (
-        <section key={group.name} className={`py-14 px-4 sm:px-8 ${gi % 2 === 0 ? 'bg-gray-50/60' : 'bg-white'}`}>
-          <div className="max-w-screen-xl mx-auto">
-            <motion.div
-              className="flex items-end justify-between mb-8"
-              initial={{ opacity: 0, x: -16 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: '-40px' }}
-              transition={{ duration: 0.5 }}
-            >
-              <div>
-                <p className="section-label mb-2">Category</p>
-                <h2 className="font-display text-2xl sm:text-3xl font-bold text-gray-900">{group.name}</h2>
-              </div>
-              <Link href="/gallery" className="flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-rose-600 transition-colors group">
-                See all <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-              </Link>
-            </motion.div>
+      {CATEGORIES.map((group, gi) => {
+        const matched = artworks.filter(a =>
+          group.filter.includes((a.category ?? '').toLowerCase())
+        ).slice(0, 4)
+        const fallback = DEMO.slice(gi * 3, gi * 3 + 4)
+        const cards = matched.length > 0 ? matched : fallback
 
-            <motion.div
-              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
-              variants={stagger}
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true, margin: '-40px' }}
-            >
-              {DEMO.slice(gi * 3, gi * 3 + 4).map((art, i) => (
-                <motion.div key={art.id} variants={fadeUp}>
-                  <Link href={`/gallery/${art.id}`} className="block bh-card-inner group rounded-xl overflow-hidden border border-gray-100">
-                    <div className="bh-card-img">
-                      <img
-                        src={`https://picsum.photos/seed/cat${gi}${i}/400/350`}
-                        alt={art.title}
-                        className="w-full aspect-[4/3] object-cover"
-                        style={{ display: 'block' }}
-                      />
-                      <div className="bh-card-overlay">
-                        <span className={`pill text-[10px] ${CAT_COLORS[art.category] || 'cat-digital'}`}>{art.category}</span>
-                        <span className="text-white text-xs">♥ {art.likes}</span>
+        return (
+          <section key={group.name} className={`py-14 px-4 sm:px-8 ${gi % 2 === 0 ? 'bg-gray-50/60' : 'bg-white'}`}>
+            <div className="max-w-screen-xl mx-auto">
+              <motion.div
+                className="flex items-end justify-between mb-8"
+                initial={{ opacity: 0, x: -16 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true, margin: '-40px' }}
+                transition={{ duration: 0.5 }}
+              >
+                <div>
+                  <p className="section-label mb-2">Category</p>
+                  <h2 className="font-display text-2xl sm:text-3xl font-bold text-gray-900">{group.name}</h2>
+                </div>
+                <Link href="/gallery" className="flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-rose-600 transition-colors group">
+                  See all <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </motion.div>
+
+              <motion.div
+                className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
+                variants={stagger}
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true, margin: '-40px' }}
+              >
+                {cards.map((art, i) => (
+                  <motion.div key={art.id} variants={fadeUp}>
+                    <Link href={`/gallery/${art.id}`} className="block bh-card-inner group rounded-xl overflow-hidden border border-gray-100">
+                      <div className="bh-card-img">
+                        <img
+                          src={art.image_url || `https://picsum.photos/seed/cat${gi}${i}/400/350`}
+                          alt={art.title}
+                          className="w-full aspect-[4/3] object-cover"
+                          style={{ display: 'block' }}
+                        />
+                        <div className="bh-card-overlay">
+                          <span className={`pill text-[10px] ${CAT_COLORS[art.category] || 'cat-digital'}`}>{art.category}</span>
+                          <span className="text-white text-xs">♥ {art.likes}</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="bh-card-meta">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 truncate">{art.title}</p>
-                        <p className="text-xs text-gray-500">{art.profiles?.first_name}</p>
+                      <div className="bh-card-meta">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{art.title}</p>
+                          <p className="text-xs text-gray-500">{art.profiles?.first_name}</p>
+                        </div>
                       </div>
-                    </div>
-                  </Link>
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-        </section>
-      ))}
+                    </Link>
+                  </motion.div>
+                ))}
+              </motion.div>
+            </div>
+          </section>
+        )
+      })}
 
       {/* ═══════════════ STUDENT PORTFOLIOS ═══════════════ */}
       <section className="py-20 px-4 sm:px-8 bg-gray-50/60">
@@ -419,29 +496,29 @@ export default function HomePage() {
             viewport={{ once: true, margin: '-60px' }}
             transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
             className="relative rounded-3xl overflow-hidden"
-            style={{ background: 'linear-gradient(135deg, #0C0C0F 0%, #1a0510 50%, #0C0C0F 100%)' }}
+            style={{ background: 'linear-gradient(135deg, #337357 0%, #2a5e47 50%, #337357 100%)' }}
           >
-            {/* Rose glow */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full opacity-25 blur-[80px]"
-              style={{ background: 'radial-gradient(circle, #337357 0%, transparent 70%)' }}
+            {/* Pink glow */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full opacity-30 blur-[80px]"
+              style={{ background: 'radial-gradient(circle, #FFDBE5 0%, transparent 70%)' }}
             />
             <div className="relative z-10 py-20 px-8 sm:px-16 text-center">
               <div className="flex justify-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(225,29,72,0.2)' }}>
-                  <Sparkles size={22} className="text-rose-400" />
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(255,219,229,0.2)' }}>
+                  <Sparkles size={22} className="text-[#FFDBE5]" />
                 </div>
               </div>
               <h2 className="font-display text-3xl sm:text-4xl font-bold text-white mb-4">
                 Ready to Showcase Your Art?
               </h2>
-              <p className="text-gray-400 mb-10 max-w-md mx-auto leading-relaxed">
+              <p className="text-white/80 mb-10 max-w-md mx-auto leading-relaxed">
                 Join Kreora and share your creative journey with students, teachers, and the world.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Link href="/signup" className="btn-primary text-base px-8 py-3 inline-flex items-center gap-2">
                   Get Started <ArrowRight size={16} />
                 </Link>
-                <Link href="/gallery" className="inline-flex items-center gap-2 text-sm font-semibold text-gray-300 border border-white/20 hover:border-white/40 hover:text-white px-8 py-3 rounded-lg transition-all">
+                <Link href="/gallery" className="inline-flex items-center gap-2 text-sm font-semibold text-white/90 border border-white/30 hover:border-white/60 hover:text-white px-8 py-3 rounded-lg transition-all">
                   Browse Gallery
                 </Link>
               </div>

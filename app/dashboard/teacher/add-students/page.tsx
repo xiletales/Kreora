@@ -483,7 +483,7 @@ export default function AddStudentsPage() {
 
       {/* ── Delete confirm dialog ── */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1a2e25]/30 backdrop-blur-sm px-4">
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 max-w-sm w-full">
             <h3 className="font-semibold text-gray-900 mb-2">Hapus Siswa?</h3>
             <p className="text-sm text-gray-500 mb-1">

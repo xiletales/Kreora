@@ -42,16 +42,16 @@ export default function AboutPage() {
     <div className="min-h-screen bg-white">
       {/* Hero */}
       <section className="relative py-24 px-4 sm:px-8 overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #0C0C0F 0%, #0d2419 100%)' }}>
-        <div className="absolute top-[-10%] left-[-5%] w-[400px] h-[400px] rounded-full opacity-20 blur-[100px]"
-          style={{ background: 'radial-gradient(circle, #337357 0%, transparent 70%)' }} />
-        <div className="absolute bottom-[-10%] right-[-5%] w-[300px] h-[300px] rounded-full opacity-15 blur-[80px]"
+        style={{ background: 'linear-gradient(135deg, #337357 0%, #2a5e47 100%)' }}>
+        <div className="absolute top-[-10%] left-[-5%] w-[400px] h-[400px] rounded-full opacity-25 blur-[100px]"
+          style={{ background: 'radial-gradient(circle, #FFDBE5 0%, transparent 70%)' }} />
+        <div className="absolute bottom-[-10%] right-[-5%] w-[300px] h-[300px] rounded-full opacity-25 blur-[80px]"
           style={{ background: 'radial-gradient(circle, #E27396 0%, transparent 70%)' }} />
 
         <div className="max-w-screen-xl mx-auto relative z-10 text-center">
           <motion.p
             className="section-label mb-4 justify-center flex items-center gap-2"
-            style={{ color: '#6D9F71' }}
+            style={{ color: '#FFDBE5' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.1 }}
@@ -67,7 +67,7 @@ export default function AboutPage() {
           >
             About{' '}
             <span style={{
-              background: 'linear-gradient(135deg, #6D9F71 0%, #EA9AB2 100%)',
+              background: 'linear-gradient(135deg, #FFDBE5 0%, #EA9AB2 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
             }}>
@@ -75,7 +75,7 @@ export default function AboutPage() {
             </span>
           </motion.h1>
           <motion.p
-            className="text-gray-400 text-lg max-w-xl mx-auto leading-relaxed"
+            className="text-white/85 text-lg max-w-xl mx-auto leading-relaxed"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}

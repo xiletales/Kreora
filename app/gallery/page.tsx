@@ -1,17 +1,18 @@
 'use client'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useEffect, useState, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { supabase, Artwork } from '@/lib/supabase'
 import { Search, SlidersHorizontal, X, Heart, TrendingUp, Clock, AlignLeft } from 'lucide-react'
 import Link from 'next/link'
 
 const CATS = [
   { id: 'All',          label: 'All' },
-  { id: 'Painting',     label: 'Painting' },
-  { id: 'Poster',       label: 'Poster' },
   { id: 'Illustration', label: 'Illustration' },
+  { id: 'Poster',       label: 'Poster' },
   { id: 'Logo',         label: 'Logo' },
   { id: 'Digital',      label: 'Digital' },
+  { id: 'Painting',     label: 'Painting' },
   { id: 'Animation',    label: 'Animation' },
 ]
 
@@ -50,20 +51,67 @@ const DEMO: Artwork[] = Array.from({ length: 20 }, (_, i) => ({
 }))
 
 export default function GalleryPage() {
+  const searchParams = useSearchParams()
+  const queryParam = searchParams.get('q') ?? ''
   const [artworks, setArtworks] = useState<Artwork[]>(DEMO)
   const [activeCat, setActiveCat] = useState('All')
   const [sortBy, setSortBy] = useState<SortId>('newest')
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(queryParam)
   const [loading, setLoading] = useState(true)
   const [showFilters, setShowFilters] = useState(false)
 
+  useEffect(() => { setSearch(queryParam) }, [queryParam])
+
   useEffect(() => {
-    supabase.from('artworks').select('*, profiles(*)').eq('status', 'published')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (data && data.length > 0) setArtworks(data as Artwork[])
-        setLoading(false)
-      }, () => setLoading(false))
+    async function loadFromSubmissions() {
+      const { data: subs, error } = await supabase
+        .from('submissions')
+        .select('id, file_url, nisn, published, submitted_at, assignments(title, category, description)')
+        .eq('published', true)
+        .order('submitted_at', { ascending: false })
+
+      console.log('[Gallery List] subs:', subs, error)
+
+      if (error || !subs || subs.length === 0) { setLoading(false); return }
+
+      const nisns = Array.from(new Set(subs.map(s => s.nisn)))
+      const { data: students } = await supabase
+        .from('students')
+        .select('nisn, name')
+        .in('nisn', nisns)
+      const nameMap = Object.fromEntries((students ?? []).map(s => [s.nisn, s.name]))
+
+      const mapped: Artwork[] = subs
+        .filter(s => s.file_url)
+        .map(s => {
+          const asgn: any = Array.isArray(s.assignments) ? s.assignments[0] : s.assignments
+          const fullName = nameMap[s.nisn] ?? `Student ${s.nisn}`
+          const [first, ...rest] = fullName.split(' ')
+          return {
+            id:           s.id,
+            title:        asgn?.title ?? 'Untitled',
+            category:     asgn?.category ?? '',
+            status:       'published',
+            image_url:    s.file_url ?? '',
+            likes:        0,
+            creator_id:   s.nisn,
+            description:  asgn?.description ?? '',
+            profiles: {
+              id: '', username: '', email: '', role: 'student',
+              first_name: first ?? 'Student',
+              last_name:  rest.join(' '),
+              created_at: '',
+            },
+            created_at:  s.submitted_at,
+            updated_at:  '',
+          } as Artwork
+        })
+
+      if (mapped.length > 0) setArtworks(mapped)
+      setLoading(false)
+    }
+
+    loadFromSubmissions()
   }, [])
 
   // Filter + sort derived from artworks state
@@ -181,12 +229,14 @@ export default function GalleryPage() {
           transition={{ duration: 0.5 }}
         >
           <p className="section-label mb-2">
-            {activeCat === 'All' ? 'All Artworks' : activeCat}
+            {queryParam ? 'Search' : activeCat === 'All' ? 'All Artworks' : activeCat}
           </p>
           <h1 className="font-display text-3xl sm:text-4xl font-bold text-gray-900">
-            {activeCat === 'All' ? 'Explore Gallery' : activeCat}
+            {queryParam
+              ? <>Search results for: <span className="text-[#337357]">{queryParam}</span></>
+              : activeCat === 'All' ? 'Explore Gallery' : activeCat}
           </h1>
-          {search && (
+          {!queryParam && search && (
             <p className="text-gray-500 text-sm mt-1">
               Showing results for &ldquo;<span className="text-rose-500 font-medium">{search}</span>&rdquo;
             </p>
@@ -213,7 +263,9 @@ export default function GalleryPage() {
               <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
                 <Search size={24} className="text-gray-300" />
               </div>
-              <p className="font-display text-xl font-bold text-gray-700 mb-1">Nothing found</p>
+              <p className="font-display text-xl font-bold text-gray-700 mb-1">
+                {queryParam ? `No artworks found for "${queryParam}"` : 'Nothing found'}
+              </p>
               <p className="text-gray-400 text-sm">Try a different search or category</p>
               <button
                 onClick={() => { setSearch(''); setActiveCat('All') }}

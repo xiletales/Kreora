@@ -25,9 +25,9 @@ interface Props {
 function statusBadge(deadline: string) {
   const diff = new Date(deadline).getTime() - Date.now()
   const days = diff / (1000 * 60 * 60 * 24)
-  if (diff < 0) return { label: 'Lewat', cls: 'bg-rose-100 text-rose-600' }
-  if (days <= 3) return { label: 'Segera', cls: 'bg-amber-100 text-amber-600' }
-  return { label: 'Aktif', cls: 'bg-brand-50 text-brand-600' }
+  if (diff < 0) return { label: 'Overdue', cls: 'bg-rose-100 text-rose-600' }
+  if (days <= 3) return { label: 'Soon', cls: 'bg-amber-100 text-amber-600' }
+  return { label: 'Active', cls: 'bg-[#337357]/10 text-[#337357]' }
 }
 
 const GRADE_COLOR: Record<string, string> = {
@@ -74,7 +74,7 @@ export default function AssignmentClient({ assignments, submissions }: Props) {
 
     setLoading(false)
     if (!res.ok) {
-      setError(json.error ?? 'Gagal mengumpulkan.')
+      setError(json.error ?? 'Failed to submit.')
       return
     }
 
@@ -86,7 +86,7 @@ export default function AssignmentClient({ assignments, submissions }: Props) {
     return (
       <div className="text-center py-20 text-gray-400">
         <Clock size={32} className="mx-auto mb-3 text-gray-200" />
-        <p className="text-sm">Belum ada tugas dari guru.</p>
+        <p className="text-sm">No assignments from your teacher yet.</p>
       </div>
     )
   }
@@ -123,7 +123,7 @@ export default function AssignmentClient({ assignments, submissions }: Props) {
                   )}
                   <p className="text-xs text-gray-400 mt-2">
                     Deadline:{' '}
-                    {new Date(a.deadline).toLocaleDateString('id-ID', {
+                    {new Date(a.deadline).toLocaleDateString('en-US', {
                       day: 'numeric', month: 'long', year: 'numeric',
                     })}
                   </p>
@@ -132,14 +132,14 @@ export default function AssignmentClient({ assignments, submissions }: Props) {
                 <div className="flex flex-col items-end gap-2 shrink-0">
                   {sub?.grade && (
                     <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${GRADE_COLOR[sub.grade] ?? 'text-gray-600 bg-gray-100'}`}>
-                      Nilai: {sub.grade}
+                      Grade: {sub.grade}
                     </span>
                   )}
 
                   {submitted ? (
                     <div className="flex items-center gap-1.5">
                       <CheckCircle size={14} className="text-brand-500" />
-                      <span className="text-xs font-semibold text-brand-600">Sudah dikumpulkan</span>
+                      <span className="text-xs font-semibold text-[#337357]">Submitted</span>
                     </div>
                   ) : null}
 
@@ -149,7 +149,7 @@ export default function AssignmentClient({ assignments, submissions }: Props) {
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-brand-500 text-white hover:bg-brand-600 transition-colors"
                     >
                       <Upload size={12} />
-                      {submitted ? 'Kumpulkan Ulang' : 'Kumpulkan'}
+                      {submitted ? 'Resubmit' : 'Submit'}
                     </button>
                   )}
                 </div>
@@ -161,11 +161,11 @@ export default function AssignmentClient({ assignments, submissions }: Props) {
 
       {/* Upload modal */}
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1a2e25]/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h2 className="font-semibold text-gray-900">Kumpulkan Tugas</h2>
+                <h2 className="font-semibold text-gray-900">Submit Assignment</h2>
                 <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{modal.title}</p>
               </div>
               <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
@@ -182,8 +182,8 @@ export default function AssignmentClient({ assignments, submissions }: Props) {
                 <p className="text-sm font-medium text-gray-700">{file.name}</p>
               ) : (
                 <>
-                  <p className="text-sm font-medium text-gray-500">Klik untuk pilih file</p>
-                  <p className="text-xs text-gray-400 mt-1">PDF, gambar, video, atau ZIP</p>
+                  <p className="text-sm font-medium text-gray-500">Click to choose a file</p>
+                  <p className="text-xs text-gray-400 mt-1">PDF, image, video, or ZIP</p>
                 </>
               )}
               <input
@@ -201,7 +201,7 @@ export default function AssignmentClient({ assignments, submissions }: Props) {
                 onClick={closeModal}
                 className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
               >
-                Batal
+                Cancel
               </button>
               <button
                 onClick={handleSubmit}
@@ -209,7 +209,7 @@ export default function AssignmentClient({ assignments, submissions }: Props) {
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold bg-brand-500 text-white rounded-xl hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {loading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
-                {loading ? 'Mengunggah...' : 'Kumpulkan'}
+                {loading ? 'Uploading...' : 'Submit'}
               </button>
             </div>
           </div>

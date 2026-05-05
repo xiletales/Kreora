@@ -68,7 +68,7 @@ export default function UploadArtworkModal({ open, onClose, onUploaded }: Props)
   return (
     <AnimatePresence>
       {open && (
-        <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+        <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1a2e25]/40 backdrop-blur-sm px-4"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           onClick={e => e.target === e.currentTarget && onClose()}>
           <motion.div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"

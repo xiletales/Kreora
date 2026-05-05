@@ -303,9 +303,9 @@ export default function AssignmentPage() {
                       <button disabled className="p-2 text-gray-200 cursor-not-allowed rounded-lg">
                         <Edit2 size={15} />
                       </button>
-                      <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block w-56 bg-gray-800 text-white text-xs rounded-lg px-3 py-2 pointer-events-none z-10 leading-snug">
+                      <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block w-56 bg-[#1a2e25] text-white text-xs rounded-lg px-3 py-2 pointer-events-none z-10 leading-snug">
                         Tidak bisa diedit (deadline terlalu dekat)
-                        <div className="absolute top-full right-3 border-4 border-transparent border-t-gray-800" />
+                        <div className="absolute top-full right-3 border-4 border-transparent border-t-[#1a2e25]" />
                       </div>
                     </div>
                   )}
@@ -324,7 +324,7 @@ export default function AssignmentPage() {
 
       {/* ── Delete confirmation dialog ── */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1a2e25]/30 backdrop-blur-sm px-4">
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 max-w-sm w-full">
             <h3 className="font-semibold text-gray-900 mb-2">Hapus Tugas?</h3>
             <p className="text-sm text-gray-500 mb-1">

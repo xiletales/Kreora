@@ -1234,7 +1234,7 @@ function DashboardInner() {
         {addAssignmentOpen && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#1a2e25]/40 backdrop-blur-sm px-4"
             onClick={() => setAddAssignmentOpen(false)}
           >
             <motion.div
@@ -1284,7 +1284,7 @@ function DashboardInner() {
         {addEventOpen && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#1a2e25]/40 backdrop-blur-sm px-4"
             onClick={() => setAddEventOpen(false)}
           >
             <motion.div

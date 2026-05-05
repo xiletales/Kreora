@@ -52,12 +52,17 @@ export default function LoginPage() {
 
     } else {
       try {
+        console.log('Sending student login:', { nisn: studentNisn.trim(), password: password.trim() })
         const res = await fetch('/api/auth/student-login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nisn: studentNisn.trim(), password }),
+          body: JSON.stringify({
+            nisn: studentNisn.trim(),
+            password: password.trim()
+          }),
         })
         const json = await res.json()
+        console.log('Student login response:', res.status, json)
 
         if (!res.ok) {
           toast.error(json.error || 'NISN or password is incorrect.')
@@ -164,7 +169,7 @@ export default function LoginPage() {
                   </button>
                 </div>
                 {role === 'student' && (
-                  <p className="text-xs text-gray-400 mt-1">Default password is your NISN + "1"</p>
+                  <p className="text-xs text-gray-400 mt-1">Default password is your NISN</p>
                 )}
               </div>
 

@@ -1,17 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import { NextResponse } from 'next/server'
 
-export async function GET(req: NextRequest) {
-  const cookie = req.cookies.get('kreora_student_session')
-  if (!cookie?.value) {
-    return NextResponse.json({ student: null })
+export async function GET() {
+  const cookieStore = await cookies()
+  const raw = cookieStore.get('kreora_student_session')?.value
+
+  if (!raw) {
+    return NextResponse.json({ student: null, error: 'Not authenticated' })
   }
+
   try {
-    const student = JSON.parse(cookie.value)
+    const student = JSON.parse(raw)
     if (!student?.nisn || student?.role !== 'student') {
-      return NextResponse.json({ student: null })
+      return NextResponse.json({ student: null, error: 'Not authenticated' })
     }
     return NextResponse.json({ student })
   } catch {
-    return NextResponse.json({ student: null })
+    return NextResponse.json({ student: null, error: 'Not authenticated' })
   }
 }

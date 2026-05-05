@@ -1,9 +1,14 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createBrowserClient } from '@supabase/auth-helpers-nextjs'
 import { useAuth } from '@/context/AuthContext'
 import { Plus, Trash2, X, ClipboardList, Loader2, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { motion } from 'framer-motion'
+import PageTransition from '@/components/PageTransition'
+
+const listContainer = { show: { transition: { staggerChildren: 0.07 } } }
+const listItem = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,14 +16,17 @@ const supabase = createBrowserClient(
 )
 
 const CATEGORIES = ['Illustration', 'Poster', 'Logo', 'Digital', 'Painting', 'Animation']
-const TYPES = ['video', 'visual', 'project'] as const
+const DEADLINE_FILTERS = ['All', 'This Week', 'This Month', 'Overdue'] as const
+const SORT_OPTIONS = ['Newest First', 'Oldest First', 'Deadline Soonest'] as const
+
+type DeadlineFilter = typeof DEADLINE_FILTERS[number]
+type SortOption = typeof SORT_OPTIONS[number]
 
 const EMPTY_FORM = {
   title:       '',
   category:    'Illustration',
   deadline:    '',
   description: '',
-  type:        'visual' as typeof TYPES[number],
 }
 
 interface Assignment {
@@ -27,7 +35,6 @@ interface Assignment {
   category: string
   deadline: string
   description?: string | null
-  status: string
   created_at: string
   submissionCount: number
 }
@@ -38,15 +45,6 @@ function deadlineBadge(deadline: string) {
   if (diff < 0)  return { label: 'Past due', cls: 'bg-rose-100 text-rose-600' }
   if (days <= 3) return { label: `${days}d left`, cls: 'bg-amber-100 text-amber-700' }
   return              { label: 'Active', cls: 'bg-[#337357]/10 text-[#337357]' }
-}
-
-function typeBadge(type: string) {
-  const map: Record<string, string> = {
-    video:   'bg-blue-100 text-blue-700',
-    visual:  'bg-purple-100 text-purple-700',
-    project: 'bg-orange-100 text-orange-700',
-  }
-  return map[type] ?? 'bg-gray-100 text-gray-600'
 }
 
 export default function AssignmentsPage() {
@@ -60,85 +58,81 @@ export default function AssignmentsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Assignment | null>(null)
   const [deleting, setDeleting]         = useState(false)
 
-  useEffect(() => {
-    console.log('[AssignmentsPage] user:', user)
+  const [filterCategory, setFilterCategory] = useState<string>('All')
+  const [filterDeadline, setFilterDeadline] = useState<DeadlineFilter>('All')
+  const [sortBy, setSortBy]                 = useState<SortOption>('Newest First')
 
-    if (!user?.id) {
-      // AuthContext still loading — keep spinner until user resolves
-      return
-    }
-
+  const loadAssignments = useCallback(async () => {
+    if (!user?.id) return
     setLoading(true)
     setFetchError(null)
 
-    async function load() {
-      const { data, error } = await supabase
-        .from('assignments')
-        .select('*')
-        .eq('teacher_id', user!.id)
-        .order('created_at', { ascending: false })
+    const { data, error } = await supabase
+      .from('assignments')
+      .select('id, teacher_id, title, category, deadline, description, created_at')
+      .eq('teacher_id', user.id)
+      .order('created_at', { ascending: false })
 
-      if (error) {
-        console.error('[AssignmentsPage] fetch error:', error)
-        setFetchError(`${error.message} (code: ${error.code})`)
-        setLoading(false)
-        return
-      }
-
-      const ids = (data ?? []).map((a: Assignment) => a.id)
-      let countMap: Record<string, number> = {}
-
-      if (ids.length > 0) {
-        const { data: subs } = await supabase
-          .from('submissions')
-          .select('assignment_id')
-          .in('assignment_id', ids)
-        subs?.forEach((s: { assignment_id: string }) => {
-          countMap[s.assignment_id] = (countMap[s.assignment_id] || 0) + 1
-        })
-      }
-
-      setAssignments((data ?? []).map((a: Assignment) => ({ ...a, submissionCount: countMap[a.id] || 0 })))
+    if (error) {
+      console.error('[AssignmentsPage] fetch error:', error)
+      setFetchError(`${error.message} (code: ${error.code})`)
       setLoading(false)
+      return
     }
 
-    load()
+    const ids = (data ?? []).map((a: Assignment) => a.id)
+    const countMap: Record<string, number> = {}
+
+    if (ids.length > 0) {
+      const { data: subs } = await supabase
+        .from('submissions')
+        .select('assignment_id')
+        .in('assignment_id', ids)
+      subs?.forEach((s: { assignment_id: string }) => {
+        countMap[s.assignment_id] = (countMap[s.assignment_id] || 0) + 1
+      })
+    }
+
+    setAssignments((data ?? []).map((a: Assignment) => ({ ...a, submissionCount: countMap[a.id] || 0 })))
+    setLoading(false)
   }, [user?.id])
+
+  useEffect(() => {
+    console.log('[AssignmentsPage] user:', user)
+    if (!user?.id) return
+    loadAssignments()
+  }, [user, loadAssignments])
 
   function closeForm() { setShowForm(false); setForm(EMPTY_FORM) }
 
   async function handleCreate() {
+    if (!user?.id) { toast.error('Not authenticated'); return }
     if (!form.title.trim()) { toast.error('Title is required.'); return }
     if (!form.deadline)     { toast.error('Deadline is required.'); return }
-    if (!user?.id) return
 
-    setSaving(true)
-    const { error } = await supabase.from('assignments').insert({
-      teacher_id:  user.id,
+    const payload = {
       title:       form.title.trim(),
       category:    form.category,
       deadline:    form.deadline,
       description: form.description.trim() || null,
-      status:      form.type,
-    })
+      teacher_id:  user.id,
+    }
+    console.log('Inserting assignment:', payload)
+
+    setSaving(true)
+    const { error: insertError } = await supabase.from('assignments').insert(payload)
     setSaving(false)
 
-    if (error) {
-      console.error('[AssignmentsPage] insert error:', error)
-      toast.error('Failed to create assignment.')
+    if (insertError) {
+      console.error('Insert error:', JSON.stringify(insertError))
+      toast.error('Failed to create assignment: ' + (insertError.message || insertError.code || JSON.stringify(insertError)))
       return
     }
 
-    toast.success('Assignment created.')
-    closeForm()
-
-    // Reload
-    const { data } = await supabase
-      .from('assignments')
-      .select('*')
-      .eq('teacher_id', user.id)
-      .order('created_at', { ascending: false })
-    setAssignments((data ?? []).map((a: Assignment) => ({ ...a, submissionCount: 0 })))
+    toast.success('Assignment created')
+    setForm(EMPTY_FORM)
+    setShowForm(false)
+    await loadAssignments()
   }
 
   async function handleDelete() {
@@ -155,10 +149,35 @@ export default function AssignmentsPage() {
     setDeleteTarget(null)
   }
 
+  const visibleAssignments = useMemo(() => {
+    const now = Date.now()
+    const week  = now + 7  * 86_400_000
+    const month = now + 30 * 86_400_000
+
+    let arr = assignments
+    if (filterCategory !== 'All') arr = arr.filter(a => a.category === filterCategory)
+    if (filterDeadline !== 'All') {
+      arr = arr.filter(a => {
+        const t = new Date(a.deadline).getTime()
+        if (filterDeadline === 'This Week')  return t >= now && t <= week
+        if (filterDeadline === 'This Month') return t >= now && t <= month
+        if (filterDeadline === 'Overdue')    return t < now
+        return true
+      })
+    }
+
+    const sorted = [...arr]
+    if (sortBy === 'Newest First')      sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    if (sortBy === 'Oldest First')      sorted.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    if (sortBy === 'Deadline Soonest')  sorted.sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
+    return sorted
+  }, [assignments, filterCategory, filterDeadline, sortBy])
+
   const today = new Date().toISOString().split('T')[0]
+  const filterSelectCls = 'text-xs font-medium text-[#1a2e25] bg-white border border-[#EA9AB2]/50 rounded-lg px-3 py-1.5 outline-none focus:border-[#E27396] transition-colors'
 
   return (
-    <div className="p-4 sm:p-8 max-w-[1200px] mx-auto">
+    <PageTransition className="p-6 w-full">
 
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
@@ -216,14 +235,6 @@ export default function AssignmentsPage() {
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-[#5a7a6a] mb-1.5 block">Type *</label>
-              <select className="kreora-input" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as typeof TYPES[number] }))}>
-                {TYPES.map(t => (
-                  <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
-                ))}
-              </select>
-            </div>
-            <div>
               <label className="text-xs font-medium text-[#5a7a6a] mb-1.5 block">Deadline *</label>
               <input
                 type="date"
@@ -266,6 +277,34 @@ export default function AssignmentsPage() {
         </div>
       )}
 
+      {/* Filters */}
+      {!loading && !fetchError && assignments.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 mb-5 px-1">
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-[#5a7a6a] font-medium">Category</label>
+            <select className={filterSelectCls} value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+              <option value="All">All</option>
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-[#5a7a6a] font-medium">Deadline</label>
+            <select className={filterSelectCls} value={filterDeadline} onChange={e => setFilterDeadline(e.target.value as DeadlineFilter)}>
+              {DEADLINE_FILTERS.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-[#5a7a6a] font-medium">Sort</label>
+            <select className={filterSelectCls} value={sortBy} onChange={e => setSortBy(e.target.value as SortOption)}>
+              {SORT_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <span className="text-xs text-[#5a7a6a] ml-auto">
+            Showing {visibleAssignments.length} of {assignments.length} assignments
+          </span>
+        </div>
+      )}
+
       {/* List */}
       {loading ? (
         <div className="space-y-3">
@@ -281,13 +320,20 @@ export default function AssignmentsPage() {
           <p className="font-semibold text-[#1a2e25]">No assignments yet</p>
           <p className="text-sm text-[#5a7a6a] mt-1">Click "New Assignment" to get started.</p>
         </div>
+      ) : visibleAssignments.length === 0 ? (
+        <div className="text-center py-16 bg-white border border-[#E5EDE9] rounded-xl shadow-sm">
+          <p className="text-sm text-[#5a7a6a]">No assignments match the current filters.</p>
+        </div>
       ) : (
-        <div className="space-y-3">
-          {assignments.map(a => {
+        <motion.div className="space-y-3" variants={listContainer} initial="hidden" animate="show">
+          {visibleAssignments.map(a => {
             const dlBadge = deadlineBadge(a.deadline)
             return (
-              <div
+              <motion.div
                 key={a.id}
+                variants={listItem}
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
                 className="w-full bg-white border border-[#E5EDE9] rounded-xl p-5 flex items-start gap-4 hover:shadow-sm transition-shadow"
               >
                 <div className="flex-1 min-w-0">
@@ -297,9 +343,6 @@ export default function AssignmentsPage() {
                     </span>
                     <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
                       {a.category}
-                    </span>
-                    <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full capitalize ${typeBadge(a.status)}`}>
-                      {a.status}
                     </span>
                   </div>
                   <h3 className="font-bold text-[#1a2e25] text-sm">{a.title}</h3>
@@ -320,15 +363,15 @@ export default function AssignmentsPage() {
                 >
                   <Trash2 size={15} />
                 </button>
-              </div>
+              </motion.div>
             )
           })}
-        </div>
+        </motion.div>
       )}
 
       {/* Delete confirmation */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1a2e25]/30 backdrop-blur-sm px-4">
           <div className="bg-white rounded-xl shadow-xl border border-[#E5EDE9] p-6 max-w-sm w-full">
             <h3 className="font-semibold text-[#1a2e25] mb-2">Delete Assignment?</h3>
             <p className="text-sm text-[#5a7a6a] mb-1">
@@ -353,6 +396,6 @@ export default function AssignmentsPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageTransition>
   )
 }

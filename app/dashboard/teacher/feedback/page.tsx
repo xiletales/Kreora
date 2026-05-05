@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { Send, Download, MessageSquare, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import PageTransition from '@/components/PageTransition'
 
 interface FeedbackEntry {
   id: string
@@ -17,6 +18,7 @@ interface SubmissionItem {
   nisn: string
   file_url: string | null
   submitted_at: string
+  grade: string | null
   assignment_title: string
   assignment_category: string
   student_name: string
@@ -40,26 +42,45 @@ export default function FeedbackPage() {
     if (!user) return
     setLoading(true)
 
+    // 1. Assignments owned by this teacher
+    const { data: assignments } = await supabase
+      .from('assignments')
+      .select('id, title, category')
+      .eq('teacher_id', user.id)
+
+    if (!assignments || assignments.length === 0) {
+      setItems([])
+      setLoading(false)
+      return
+    }
+    const assignmentMap = Object.fromEntries(assignments.map(a => [a.id, a]))
+    const assignmentIds = assignments.map(a => a.id)
+
+    // 2. Submissions for those assignments (no compound join — fetch then merge)
+    const { data: submissions, error } = await supabase
+      .from('submissions')
+      .select('id, nisn, file_url, submitted_at, grade, assignment_id')
+      .in('assignment_id', assignmentIds)
+      .order('submitted_at', { ascending: false })
+
+    if (error || !submissions) {
+      setItems([])
+      setLoading(false)
+      return
+    }
+
+    // 3. Students this teacher manages (by added_by)
     const { data: students } = await supabase
       .from('students')
       .select('nisn, name, grade, class')
-      .eq('teacher_id', user.id)
+      .eq('added_by', user.id)
 
-    if (!students || students.length === 0) { setLoading(false); return }
+    const studentMap: Record<string, { name: string; grade: string; class: string }> =
+      Object.fromEntries((students ?? []).map(s => [s.nisn, s]))
 
-    const nisns = students.map(s => s.nisn)
-    const studentMap = Object.fromEntries(students.map(s => [s.nisn, s]))
-
-    const { data: submissions, error } = await supabase
-      .from('submissions')
-      .select('id, nisn, file_url, submitted_at, assignment_id, assignments(title, category)')
-      .in('nisn', nisns)
-      .order('submitted_at', { ascending: false })
-
-    if (error || !submissions) { setLoading(false); return }
-
+    // 4. Feedback comments on those submissions
     const subIds = submissions.map(s => s.id)
-    let fbMap: Record<string, FeedbackEntry[]> = {}
+    const fbMap: Record<string, FeedbackEntry[]> = {}
 
     if (subIds.length > 0) {
       const { data: feedbacks } = await supabase
@@ -74,14 +95,15 @@ export default function FeedbackPage() {
       })
     }
 
-    const merged: SubmissionItem[] = submissions.map((s: any) => {
-      const asgn = Array.isArray(s.assignments) ? s.assignments[0] : s.assignments
-      const st = studentMap[s.nisn]
+    const merged: SubmissionItem[] = submissions.map(s => {
+      const asgn = assignmentMap[s.assignment_id]
+      const st   = studentMap[s.nisn]
       return {
         id:                   s.id,
         nisn:                 s.nisn,
         file_url:             s.file_url,
         submitted_at:         s.submitted_at,
+        grade:                s.grade ?? null,
         assignment_title:     asgn?.title ?? 'Assignment',
         assignment_category:  asgn?.category ?? '',
         student_name:         st?.name ?? 'Student',
@@ -136,7 +158,7 @@ export default function FeedbackPage() {
   }
 
   return (
-    <div className="p-4 sm:p-8 max-w-4xl mx-auto">
+    <PageTransition className="p-6 w-full">
       <div className="mb-8 pl-4 border-l-4 border-[#337357]">
         <h1 className="text-2xl font-bold text-[#1a2e25]">Feedback</h1>
         <p className="text-sm text-[#5a7a6a] mt-0.5">Review and comment on student submissions</p>
@@ -178,8 +200,18 @@ export default function FeedbackPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-[#1a2e25] text-sm">{item.student_name}</span>
                       <span className="text-[10px] font-semibold text-[#5a7a6a] bg-[#F8FAF9] border border-[#E5EDE9] px-2 py-0.5 rounded-full">
-                        Grade {item.student_grade} · Class {item.student_class}
+                        NISN {item.nisn}
                       </span>
+                      {item.student_grade && (
+                        <span className="text-[10px] font-semibold text-[#5a7a6a] bg-[#F8FAF9] border border-[#E5EDE9] px-2 py-0.5 rounded-full">
+                          Grade {item.student_grade} · Class {item.student_class}
+                        </span>
+                      )}
+                      {item.grade && (
+                        <span className="text-[10px] font-semibold bg-[#337357]/10 text-[#337357] px-2 py-0.5 rounded-full">
+                          Grade: {item.grade}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-[#5a7a6a] mt-0.5">
                       {item.assignment_title}
@@ -249,6 +281,6 @@ export default function FeedbackPage() {
           })}
         </div>
       )}
-    </div>
+    </PageTransition>
   )
 }

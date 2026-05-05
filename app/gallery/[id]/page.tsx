@@ -4,21 +4,13 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase, Artwork } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
-import { Heart, ArrowLeft, Send, Share2, Bookmark, User } from 'lucide-react'
+import { Heart, ArrowLeft, Send, Share2, Bookmark, User, Search } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 
 const CAT_COLORS: Record<string, string> = {
   painting: 'cat-painting', poster: 'cat-poster', illustration: 'cat-illustration',
   logo: 'cat-logo', digital: 'cat-digital', animation: 'cat-animation',
-}
-
-const DEMO: Artwork = {
-  id: '1', title: 'Stop Bullying Poster', category: 'Poster', status: 'published',
-  image_url: 'https://picsum.photos/seed/detail1/800/900', likes: 28, creator_id: '',
-  description: 'Poster ini dibuat dengan aplikasi canva untuk menyebarkan kesadaran anti bullying yang makin marak terjadi di lingkungan sekolah.',
-  profiles: { id:'', username:'radika', first_name:'Radika', last_name:'Riski', email:'', role:'student', grade:'XI DKV 1', class:'SMK DBB', created_at:'' },
-  created_at: '2024-10-13', updated_at: ''
 }
 
 interface Comment {
@@ -31,31 +23,86 @@ interface Comment {
 
 export default function ArtworkDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { user, profile } = useAuth()
-  const [artwork, setArtwork] = useState<Artwork>(DEMO)
+  const { user } = useAuth()
+  const [artwork, setArtwork] = useState<Artwork | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')
   const [guestName, setGuestName] = useState('')
   const [liked, setLiked] = useState(false)
-  const [likeCount, setLikeCount] = useState(DEMO.likes)
+  const [likeCount, setLikeCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [submissionGrade, setSubmissionGrade] = useState<string | null>(null)
+  const [submissionFeedback, setSubmissionFeedback] = useState<string | null>(null)
 
   const LIKE_KEY = `kreora_liked_${id}`
 
   useEffect(() => {
+    console.log('[Gallery Detail] id:', id)
+    if (!id) return
     async function load() {
-      try {
-        const { data: art } = await supabase
-          .from('artworks').select('*, profiles(*)').eq('id', id).single()
-        if (art) { setArtwork(art as Artwork); setLikeCount(art.likes || 0) }
+      setLoading(true)
 
+      // Submissions are the source of truth — the `artworks` table doesn't exist.
+      const { data, error } = await supabase
+        .from('submissions')
+        .select('id, nisn, file_url, submitted_at, published, grade, feedback, assignments(title, category, description)')
+        .eq('id', id)
+        .single()
+
+      console.log('[Gallery Detail] data:', data, error)
+      const sub = data
+
+      let resolved: Artwork | null = null
+
+      if (sub) {
+        const asgn: any = Array.isArray(sub.assignments) ? sub.assignments[0] : sub.assignments
+
+        // Look up student name by nisn
+        let fullName = `Student ${sub.nisn}`
+        let studentMeta: { grade?: string; class?: string } = {}
+        const { data: stu } = await supabase
+          .from('students').select('name, grade, class').eq('nisn', sub.nisn).single()
+        if (stu) {
+          fullName = stu.name ?? fullName
+          studentMeta = { grade: stu.grade, class: stu.class }
+        }
+
+        setSubmissionGrade(sub.grade ?? null)
+        setSubmissionFeedback(sub.feedback ?? null)
+
+        resolved = {
+          id:         sub.id,
+          title:      asgn?.title ?? 'Untitled',
+          category:   asgn?.category ?? '',
+          status:     sub.published ? 'published' : 'pending',
+          image_url:  sub.file_url ?? '',
+          likes:      0,
+          creator_id: sub.nisn,
+          description: asgn?.description ?? (sub.grade ? `Grade: ${sub.grade}` : undefined),
+          profiles: {
+            id: '', username: '', email: '', role: 'student',
+            first_name: fullName.split(' ')[0] ?? 'Student',
+            last_name:  fullName.split(' ').slice(1).join(' '),
+            grade: studentMeta.grade,
+            class: studentMeta.class,
+            created_at: '',
+          },
+          created_at: sub.submitted_at,
+          updated_at: '',
+        } as Artwork
+      }
+
+      setArtwork(resolved)
+      setLikeCount(resolved?.likes ?? 0)
+
+      if (resolved) {
+        // Comments table still keyed by artwork_id — keep working with submission id
         const { data: cmts } = await supabase
           .from('comments').select('*, profiles(*)')
           .eq('artwork_id', id).order('created_at', { ascending: false })
         if (cmts) setComments(cmts as Comment[])
 
-        // Liked state: logged-in users check DB, guests check localStorage
         if (user) {
           const { data: likeData } = await supabase
             .from('artwork_likes').select('id')
@@ -64,7 +111,8 @@ export default function ArtworkDetailPage() {
         } else {
           setLiked(!!localStorage.getItem(LIKE_KEY))
         }
-      } catch { /* use demo */ }
+      }
+
       setLoading(false)
     }
     load()
@@ -127,7 +175,6 @@ export default function ArtworkDetailPage() {
     }
   }
 
-  const catCls = CAT_COLORS[artwork.category?.toLowerCase()] || 'cat-digital'
   const displayName = (c: Comment) =>
     c.profiles
       ? `${c.profiles.first_name} ${c.profiles.last_name}`.trim()
@@ -135,6 +182,39 @@ export default function ArtworkDetailPage() {
   const avatarLetter = (c: Comment) =>
     c.profiles ? (c.profiles.first_name?.[0] || 'U').toUpperCase()
       : (c.guest_name?.[0] || 'G').toUpperCase()
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-10 h-10 border-2 border-[#337357]/30 border-t-[#337357] rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (!artwork) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4">
+        <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+          <Search size={24} className="text-gray-300" />
+        </div>
+        <p className="font-display text-xl font-bold text-gray-700 mb-1">Artwork not found</p>
+        <p className="text-gray-400 text-sm mb-6">It may have been removed or the link is invalid.</p>
+        <Link href="/gallery" className="btn-outline">Back to Gallery</Link>
+      </div>
+    )
+  }
+
+  const catCls = CAT_COLORS[artwork.category?.toLowerCase()] || 'cat-digital'
+
+  const gradeColor = (g: string | null) => {
+    if (g === 'A') return 'bg-emerald-100 text-emerald-700 border-emerald-200'
+    if (g === 'B') return 'bg-blue-100 text-blue-700 border-blue-200'
+    if (g === 'C') return 'bg-amber-100 text-amber-700 border-amber-200'
+    if (g === 'D') return 'bg-rose-100 text-rose-700 border-rose-200'
+    return 'bg-gray-100 text-gray-600 border-gray-200'
+  }
+
+  const teacherFeedback = submissionFeedback
 
   return (
     <div className="min-h-screen bg-white">
@@ -233,7 +313,13 @@ export default function ArtworkDetailPage() {
             )}
 
             {/* Meta */}
-            <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-0.5">Grade</p>
+                <span className={`text-xs font-semibold inline-flex items-center justify-center min-w-[24px] px-2 py-0.5 rounded-md border ${gradeColor(submissionGrade)}`}>
+                  {submissionGrade ?? '—'}
+                </span>
+              </div>
               <div className="bg-gray-50 rounded-xl p-3">
                 <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-0.5">Status</p>
                 <span className={`text-xs font-semibold ${artwork.status === 'published' ? 'text-emerald-600' : 'text-amber-600'}`}>
@@ -250,10 +336,14 @@ export default function ArtworkDetailPage() {
               )}
             </div>
 
-            {/* Teacher action */}
-            {profile?.role === 'teacher' && (
-              <button className="btn-primary w-full mb-6">Grade this Artwork</button>
+            {/* Teacher Feedback */}
+            {teacherFeedback && (
+              <div className="mb-6 rounded-xl border border-[#337357]/20 bg-[#337357]/5 p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#337357] mb-1.5">Teacher feedback</p>
+                <p className="text-sm text-[#1a2e25] leading-relaxed">{teacherFeedback}</p>
+              </div>
             )}
+
 
             {/* Comments */}
             <div className="flex-1">
@@ -285,7 +375,7 @@ export default function ArtworkDetailPage() {
                 <div className="flex gap-2">
                   <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold shrink-0 mt-0.5">
                     {user
-                      ? (profile?.first_name?.[0] || 'U').toUpperCase()
+                      ? (user.email?.[0] || 'U').toUpperCase()
                       : (guestName?.[0] || '?').toUpperCase()
                     }
                   </div>

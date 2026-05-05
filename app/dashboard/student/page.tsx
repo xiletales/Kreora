@@ -1,184 +1,302 @@
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
-import { ClipboardList, FileText, Star, Award, CheckCircle, Clock } from 'lucide-react'
+'use client'
+import { useEffect, useState } from 'react'
+import { motion } from 'framer-motion'
+import { supabase } from '@/lib/supabase'
+import { ClipboardList, FileText, Star, Loader2, Calendar } from 'lucide-react'
 
-const getAdmin = () => createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+interface StudentSession {
+  nisn: string
+  name: string
+  grade?: string
+  class?: string
+  role: 'student'
+}
+
+interface Assignment {
+  id: string
+  title: string
+  category: string
+  deadline: string
+  description: string | null
+}
+
+interface Submission {
+  id: string
+  assignment_id: string
+  file_url: string | null
+  submitted_at: string
+  grade: string | number | null
+  feedback?: string | null
+  assignmentTitle: string
+  assignmentCategory: string
+}
+
+function fmt(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+}
 
 function statusBadge(deadline: string) {
   const diff = new Date(deadline).getTime() - Date.now()
-  const days = diff / (1000 * 60 * 60 * 24)
-  if (diff < 0) return { label: 'Lewat', cls: 'bg-rose-100 text-rose-600' }
-  if (days <= 3) return { label: 'Segera', cls: 'bg-amber-100 text-amber-600' }
-  return { label: 'Aktif', cls: 'bg-brand-50 text-brand-600' }
+  const days = Math.ceil(diff / (1000 * 60 * 60 * 24))
+  if (diff < 0) return { label: 'Past due', cls: 'bg-rose-100 text-rose-600' }
+  if (days <= 3) return { label: `${days}d left`, cls: 'bg-amber-100 text-amber-700' }
+  return { label: 'Active', cls: 'bg-[#337357]/10 text-[#337357]' }
 }
 
-export default async function StudentHomePage() {
-  const cookieStore = await cookies()
-  const raw = cookieStore.get('kreora_student_session')?.value
-  if (!raw) redirect('/login')
+const containerVariants = { show: { transition: { staggerChildren: 0.07 } } }
+const itemVariants = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }
 
-  const session = JSON.parse(raw)
-  const { nisn } = session
+export default function StudentDashboardPage() {
+  const [session, setSession] = useState<StudentSession | null>(null)
+  const [assignments, setAssignments] = useState<Assignment[]>([])
+  const [submissions, setSubmissions] = useState<Submission[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Get student record to find their teacher
-  const { data: student } = await getAdmin()
-    .from('students')
-    .select('added_by')
-    .eq('nisn', nisn)
-    .single()
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      try {
+        const res = await fetch('/api/auth/student-session', { cache: 'no-store' })
+        const json = await res.json()
 
-  if (!student) redirect('/login')
+        if (!json?.student?.nisn) {
+          setError('Not authenticated')
+          setLoading(false)
+          return
+        }
+        const stu: StudentSession = json.student
+        setSession(stu)
 
-  const teacherId = student.added_by
+        // Find this student's teacher via the added_by column
+        const { data: studentRow } = await supabase
+          .from('students')
+          .select('added_by')
+          .eq('nisn', stu.nisn)
+          .maybeSingle()
 
-  // Parallel: assignments + submissions
-  const [{ data: rawAssignments }, { data: rawSubmissions }] = await Promise.all([
-    getAdmin()
-      .from('assignments')
-      .select('id, title, deadline, category')
-      .eq('teacher_id', teacherId)
-      .order('created_at', { ascending: false }),
-    getAdmin()
-      .from('submissions')
-      .select('id, assignment_id, grade, created_at')
-      .eq('nisn', nisn),
-  ])
+        const teacherId = (studentRow as { added_by?: string } | null)?.added_by ?? null
 
-  const assignments = rawAssignments ?? []
-  const submissions = rawSubmissions ?? []
+        const [{ data: rawAssignments }, { data: rawSubs }] = await Promise.all([
+          teacherId
+            ? supabase
+                .from('assignments')
+                .select('id, title, category, deadline, description')
+                .eq('teacher_id', teacherId)
+                .order('deadline', { ascending: true })
+            : Promise.resolve({ data: [] as Assignment[] }),
+          supabase
+            .from('submissions')
+            .select('id, assignment_id, file_url, submitted_at, grade, feedback, assignments(title, category)')
+            .eq('nisn', stu.nisn)
+            .order('submitted_at', { ascending: false }),
+        ])
 
-  // Badges count
-  const submissionIds = submissions.map(s => s.id)
-  let badgeCount = 0
-  if (submissionIds.length > 0) {
-    const { count } = await getAdmin()
-      .from('badges')
-      .select('id', { count: 'exact', head: true })
-      .in('submission_id', submissionIds)
-    badgeCount = count ?? 0
-  }
+        setAssignments((rawAssignments ?? []) as Assignment[])
 
-  // Recent feedback
-  let recentFeedback: { id: string; comment: string; created_at: string; assignment_title: string }[] = []
-  if (submissionIds.length > 0) {
-    const { data: feedbacks } = await getAdmin()
-      .from('feedbacks')
-      .select('id, comment, created_at, submission_id')
-      .in('submission_id', submissionIds)
-      .order('created_at', { ascending: false })
-      .limit(4)
-
-    if (feedbacks && feedbacks.length > 0) {
-      const subMap = new Map(submissions.map(s => [s.id, s.assignment_id]))
-      const asgMap = new Map(assignments.map(a => [a.id, a.title]))
-      recentFeedback = feedbacks.map(f => ({
-        id: f.id,
-        comment: f.comment,
-        created_at: f.created_at,
-        assignment_title: asgMap.get(subMap.get(f.submission_id) ?? '') ?? 'Tugas',
-      }))
+        const builtSubs: Submission[] = (rawSubs ?? []).map((s: any) => {
+          const asgn = Array.isArray(s.assignments) ? s.assignments[0] : s.assignments
+          return {
+            id: s.id,
+            assignment_id: s.assignment_id,
+            file_url: s.file_url,
+            submitted_at: s.submitted_at,
+            grade: s.grade ?? null,
+            feedback: s.feedback ?? null,
+            assignmentTitle: asgn?.title ?? 'Assignment',
+            assignmentCategory: asgn?.category ?? '',
+          }
+        })
+        setSubmissions(builtSubs)
+      } catch (e: any) {
+        setError(e?.message ?? 'Failed to load dashboard')
+      } finally {
+        setLoading(false)
+      }
     }
+    load()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="p-6 w-full flex items-center justify-center min-h-[60vh]">
+        <Loader2 size={22} className="animate-spin text-[#337357]" />
+      </div>
+    )
   }
 
-  // Stat values
+  if (error || !session) {
+    return (
+      <div className="p-6 w-full flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <p className="font-semibold text-[#1a2e25]">{error ?? 'Session not found'}</p>
+        <p className="text-sm text-[#5a7a6a] mt-1">Please log in to view the student dashboard.</p>
+      </div>
+    )
+  }
+
   const submittedIds = new Set(submissions.map(s => s.assignment_id))
-  const gradedCount = submissions.filter(s => s.grade !== null && s.grade !== '').length
-
-  const STATS = [
-    { label: 'Total Tugas',     value: assignments.length,   icon: ClipboardList, color: 'text-brand-600', bg: 'bg-brand-50'  },
-    { label: 'Dikumpulkan',     value: submissions.length,   icon: FileText,      color: 'text-blue-600',  bg: 'bg-blue-50'   },
-    { label: 'Sudah Dinilai',   value: gradedCount,          icon: Star,          color: 'text-amber-600', bg: 'bg-amber-50'  },
-    { label: 'Badge Diterima',  value: badgeCount,           icon: Award,         color: 'text-rose-500',  bg: 'bg-rose-50'   },
-  ]
-
-  const recentAssignments = assignments.slice(0, 4)
 
   return (
-    <div className="p-6 sm:p-8 max-w-4xl">
-
+    <motion.div
+      className="p-6 w-full"
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
+    >
       {/* Header */}
-      <div className="mb-8">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Dashboard Siswa</p>
-        <h1 className="font-display text-2xl font-bold text-gray-900">
-          Halo, {session.name.split(' ')[0]} 👋
-        </h1>
+      <div className="mb-8 pl-4 border-l-4 border-[#337357]">
+        <h1 className="text-2xl font-bold text-[#1a2e25]">Welcome, {session.name}</h1>
+        <p className="text-sm text-[#5a7a6a] mt-0.5">
+          {session.grade && session.class ? `Grade ${session.grade} · Class ${session.class}` : 'Student dashboard'}
+        </p>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        {STATS.map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className="bg-white border border-gray-100 rounded-2xl p-4 hover:border-gray-200 transition-colors">
-            <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center mb-3`}>
-              <Icon size={17} className={color} />
-            </div>
-            <p className="font-display text-2xl font-bold text-gray-900">{value}</p>
-            <p className="text-xs text-gray-400 mt-0.5 font-medium">{label}</p>
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="bg-white border border-[#FFDBE5] rounded-xl p-5 shadow-sm">
+          <div className="w-9 h-9 rounded-lg bg-[#FFDBE5]/40 flex items-center justify-center mb-3">
+            <ClipboardList size={17} className="text-[#E27396]" />
           </div>
-        ))}
+          <p className="text-2xl font-bold text-[#1a2e25]">{assignments.length}</p>
+          <p className="text-xs text-[#5a7a6a] mt-0.5 font-medium">Assignments from teacher</p>
+        </div>
+        <div className="bg-white border border-[#E5EDE9] rounded-xl p-5 shadow-sm">
+          <div className="w-9 h-9 rounded-lg bg-[#337357]/10 flex items-center justify-center mb-3">
+            <FileText size={17} className="text-[#337357]" />
+          </div>
+          <p className="text-2xl font-bold text-[#1a2e25]">{submissions.length}</p>
+          <p className="text-xs text-[#5a7a6a] mt-0.5 font-medium">Your submissions</p>
+        </div>
+        <div className="bg-white border border-[#E5EDE9] rounded-xl p-5 shadow-sm">
+          <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center mb-3">
+            <Star size={17} className="text-amber-600" />
+          </div>
+          <p className="text-2xl font-bold text-[#1a2e25]">
+            {submissions.filter(s => s.grade !== null && s.grade !== '').length}
+          </p>
+          <p className="text-xs text-[#5a7a6a] mt-0.5 font-medium">Graded</p>
+        </div>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-6">
-
-        {/* Recent assignments */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-5">
-          <h2 className="font-semibold text-gray-900 text-sm mb-4">Tugas Terbaru</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* My Assignments */}
+        <section className="bg-white border border-[#E5EDE9] rounded-xl shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-[#E5EDE9] bg-[#F8FAF9] flex items-center justify-between">
+            <h2 className="font-semibold text-[#1a2e25] text-sm">My Assignments</h2>
+            <span className="text-xs text-[#5a7a6a]">{assignments.length}</span>
+          </div>
 
           {assignments.length === 0 ? (
-            <p className="text-sm text-gray-400">Belum ada tugas dari guru.</p>
+            <div className="p-6 text-center text-sm text-[#5a7a6a]">
+              No assignments yet from your teacher.
+            </div>
           ) : (
-            <div className="space-y-3">
-              {recentAssignments.map(a => {
+            <motion.ul
+              className="divide-y divide-[#E5EDE9]"
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+            >
+              {assignments.map(a => {
                 const submitted = submittedIds.has(a.id)
                 const badge = statusBadge(a.deadline)
                 return (
-                  <div key={a.id} className="flex items-start gap-3">
-                    <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${submitted ? 'bg-brand-100' : 'bg-gray-100'}`}>
-                      {submitted
-                        ? <CheckCircle size={12} className="text-brand-600" />
-                        : <Clock size={12} className="text-gray-400" />
-                      }
+                  <motion.li key={a.id} variants={itemVariants} className="px-5 py-4 flex items-start gap-3">
+                    <div className={`mt-0.5 w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                      submitted ? 'bg-[#337357]/10' : 'bg-[#FFDBE5]/40'
+                    }`}>
+                      <Calendar size={14} className={submitted ? 'text-[#337357]' : 'text-[#E27396]'} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{a.title}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {new Date(a.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold text-[#1a2e25] truncate">{a.title}</p>
+                        <span className="text-[10px] font-semibold text-[#5a7a6a] bg-[#F8FAF9] border border-[#E5EDE9] px-2 py-0.5 rounded-full">
+                          {a.category}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#5a7a6a] mt-0.5">Due {fmt(a.deadline)}</p>
                     </div>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${badge.cls}`}>
-                      {badge.label}
+                    <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full shrink-0 ${
+                      submitted ? 'bg-[#337357]/10 text-[#337357]' : badge.cls
+                    }`}>
+                      {submitted ? 'Submitted' : badge.label}
                     </span>
-                  </div>
+                  </motion.li>
                 )
               })}
-            </div>
+            </motion.ul>
           )}
-        </div>
+        </section>
 
-        {/* Recent feedback */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-5">
-          <h2 className="font-semibold text-gray-900 text-sm mb-4">Feedback Terbaru</h2>
+        {/* My Submissions */}
+        <section className="bg-white border border-[#E5EDE9] rounded-xl shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-[#E5EDE9] bg-[#F8FAF9] flex items-center justify-between">
+            <h2 className="font-semibold text-[#1a2e25] text-sm">My Submissions</h2>
+            <span className="text-xs text-[#5a7a6a]">{submissions.length}</span>
+          </div>
 
-          {recentFeedback.length === 0 ? (
-            <p className="text-sm text-gray-400">Belum ada feedback dari guru.</p>
+          {submissions.length === 0 ? (
+            <div className="p-6 text-center text-sm text-[#5a7a6a]">
+              You have not submitted any work yet.
+            </div>
           ) : (
-            <div className="space-y-3">
-              {recentFeedback.map(f => (
-                <div key={f.id} className="border border-gray-100 rounded-xl p-3">
-                  <p className="text-xs font-semibold text-brand-600 mb-1 truncate">{f.assignment_title}</p>
-                  <p className="text-sm text-gray-700 line-clamp-2">{f.comment}</p>
-                  <p className="text-xs text-gray-400 mt-1.5">
-                    {new Date(f.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                  </p>
-                </div>
+            <motion.ul
+              className="divide-y divide-[#E5EDE9]"
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+            >
+              {submissions.map(s => (
+                <motion.li key={s.id} variants={itemVariants} className="px-5 py-4">
+                  <div className="flex items-start gap-3">
+                    {s.file_url ? (
+                      <img
+                        src={s.file_url}
+                        alt=""
+                        className="w-12 h-12 rounded-lg object-cover bg-[#F8FAF9] shrink-0"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-[#F8FAF9] flex items-center justify-center shrink-0">
+                        <FileText size={16} className="text-[#5a7a6a]/40" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold text-[#1a2e25] truncate">{s.assignmentTitle}</p>
+                        {s.assignmentCategory && (
+                          <span className="text-[10px] font-semibold text-[#5a7a6a] bg-[#F8FAF9] border border-[#E5EDE9] px-2 py-0.5 rounded-full">
+                            {s.assignmentCategory}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-[#5a7a6a]/80 mt-0.5">Submitted {fmt(s.submitted_at)}</p>
+
+                      <div className="flex items-center gap-2 mt-2">
+                        {s.grade !== null && s.grade !== '' ? (
+                          <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-[#337357]/10 text-[#337357]">
+                            Grade {s.grade}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                            Awaiting grade
+                          </span>
+                        )}
+                      </div>
+
+                      {s.feedback && (
+                        <div className="mt-2.5 bg-[#FFDBE5]/30 border border-[#FFDBE5] rounded-lg px-3 py-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-[#E27396] mb-0.5">Teacher feedback</p>
+                          <p className="text-xs text-[#1a2e25] leading-relaxed">{s.feedback}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.li>
               ))}
-            </div>
+            </motion.ul>
           )}
-        </div>
+        </section>
       </div>
-    </div>
+    </motion.div>
   )
 }

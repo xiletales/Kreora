@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, ClipboardList, ImageIcon, TrendingUp, Award, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, ClipboardList, Image as ImageIcon, TrendingUp, Award, User, Settings, LogOut } from 'lucide-react'
 
 export interface StudentSession {
   nisn: string
@@ -13,12 +13,13 @@ export interface StudentSession {
 }
 
 const NAV = [
-  { href: '/dashboard/student',             label: 'Beranda',    icon: Home,          exact: true },
-  { href: '/dashboard/student/assignment',  label: 'Tugas',      icon: ClipboardList, exact: false },
-  { href: '/dashboard/student/showcase',    label: 'Showcase',   icon: ImageIcon,     exact: false },
-  { href: '/dashboard/student/progress',    label: 'Progress',   icon: TrendingUp,    exact: false },
-  { href: '/dashboard/student/badges',      label: 'Badge',      icon: Award,         exact: false },
-  { href: '/dashboard/student/edit-profile',label: 'Edit Profil',icon: Settings,      exact: false },
+  { href: '/dashboard/student',              label: 'Home',         icon: LayoutDashboard, exact: true  },
+  { href: '/dashboard/student/assignments',  label: 'Assignments',  icon: ClipboardList,   exact: false },
+  { href: '/dashboard/student/showcase',     label: 'Showcase',     icon: ImageIcon,       exact: false },
+  { href: '/dashboard/student/progress',     label: 'Progress',     icon: TrendingUp,      exact: false },
+  { href: '/dashboard/student/badges',       label: 'Badges',       icon: Award,           exact: false },
+  { href: '/dashboard/student/portfolio',    label: 'My Portfolio', icon: User,            exact: false },
+  { href: '/dashboard/student/edit-profile', label: 'Edit Profile', icon: Settings,        exact: false },
 ]
 
 export default function StudentSidebar({ session }: { session: StudentSession }) {
@@ -30,19 +31,24 @@ export default function StudentSidebar({ session }: { session: StudentSession })
     : 'S'
 
   async function handleLogout() {
-    await fetch('/api/auth/student-logout', { method: 'POST' })
+    await fetch('/api/auth/student-logout', { method: 'DELETE' })
     router.push('/login')
   }
 
   return (
-    <aside className="w-64 shrink-0 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto bg-white border-r border-gray-100 flex flex-col z-30">
+    <aside className="w-56 shrink-0 h-full overflow-y-auto bg-[#E27396] flex flex-col">
 
-      {/* Student identity */}
-      <div className="px-5 py-5 border-b border-gray-100">
+      {/* Brand */}
+      <div className="px-5 py-5 border-b border-white/15">
+        <p className="font-display text-lg font-bold text-white tracking-tight">Kreora</p>
+        <p className="text-[10px] font-medium text-white/70 uppercase tracking-widest mt-0.5">Student</p>
+      </div>
+
+      {/* Identity */}
+      <div className="px-5 py-4 border-b border-white/15">
         <div className="flex items-center gap-3">
           <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 overflow-hidden"
-            style={{ background: 'linear-gradient(135deg, #337357, #285e46)' }}
+            className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 overflow-hidden bg-white/20"
           >
             {session.photo_url
               ? <img src={session.photo_url} alt="" className="w-full h-full object-cover" />
@@ -50,10 +56,11 @@ export default function StudentSidebar({ session }: { session: StudentSession })
             }
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-gray-900 truncate">{session.name}</p>
-            <p className="text-xs text-gray-400 truncate">
-              Kelas {session.grade} {session.class}
-              {session.department ? ` · ${session.department}` : ''}
+            <p className="text-sm font-semibold text-white truncate">{session.name}</p>
+            <p className="text-xs text-white/70 truncate">
+              {session.grade && session.class
+                ? `Grade ${session.grade} ${session.class}${session.department ? ` · ${session.department}` : ''}`
+                : 'Student'}
             </p>
           </div>
         </div>
@@ -69,11 +76,11 @@ export default function StudentSidebar({ session }: { session: StudentSession })
               href={href}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 active
-                  ? 'bg-brand-50 text-brand-600 font-semibold'
-                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                  ? 'bg-[#337357] text-white font-semibold shadow-sm'
+                  : 'text-white/85 hover:text-white hover:bg-white/10'
               }`}
             >
-              <Icon size={16} className={active ? 'text-brand-500' : 'text-gray-400'} />
+              <Icon size={16} className={active ? 'text-white' : 'text-white/80'} />
               {label}
             </Link>
           )
@@ -81,13 +88,13 @@ export default function StudentSidebar({ session }: { session: StudentSession })
       </nav>
 
       {/* Logout */}
-      <div className="px-3 pb-5 border-t border-gray-100 pt-3">
+      <div className="px-3 pb-5 border-t border-white/15 pt-3">
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-rose-500 hover:bg-rose-50 transition-colors"
+          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-white/90 hover:bg-white/10 hover:text-white transition-colors"
         >
           <LogOut size={16} />
-          Keluar
+          Sign Out
         </button>
       </div>
     </aside>

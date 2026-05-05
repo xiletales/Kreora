@@ -93,20 +93,20 @@ export default function TeacherSidebar({ teacher }: { teacher: Teacher }) {
 
   return (
     <>
-      <aside className="hidden md:flex w-[220px] shrink-0 sticky top-16 h-[calc(100vh-4rem)] bg-[#1a2e25] flex-col z-30">
+      <aside className="hidden lg:flex w-60 shrink-0 h-full overflow-y-auto bg-[#1a2e25] flex-col z-30">
         {sidebarContent}
       </aside>
 
       <button
         onClick={() => setMobileOpen(true)}
-        className="md:hidden fixed bottom-4 right-4 z-40 w-12 h-12 bg-[#337357] text-white rounded-full shadow-lg flex items-center justify-center"
+        className="lg:hidden fixed bottom-4 right-4 z-40 w-12 h-12 bg-[#337357] text-white rounded-full shadow-lg flex items-center justify-center"
       >
         <Menu size={20} />
       </button>
 
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
+        <div className="lg:hidden fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-[#1a2e25]/50" onClick={() => setMobileOpen(false)} />
           <aside className="relative w-64 h-full bg-[#1a2e25] flex flex-col">
             <button
               onClick={() => setMobileOpen(false)}

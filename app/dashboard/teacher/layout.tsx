@@ -34,11 +34,11 @@ export default async function TeacherDashboardLayout({
   if (!teacher) redirect('/login')
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-[#F8FAF9]" suppressHydrationWarning>
       <TeacherSidebar teacher={teacher} />
-      <div className="flex-1 min-w-0 bg-[#F8FAF9] overflow-y-auto">
+      <main className="flex-1 h-full overflow-y-auto bg-[#F8FAF9]">
         {children}
-      </div>
+      </main>
     </div>
   )
 }

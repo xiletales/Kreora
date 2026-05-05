@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { UserPlus, Trash2, Copy, Check, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import PageTransition from '@/components/PageTransition'
 
 interface Student {
   id: string
@@ -38,7 +39,7 @@ export default function AddStudentsPage() {
     const { data } = await supabase
       .from('students')
       .select('id, nisn, name, grade, class, password')
-      .eq('teacher_id', user.id)
+      .eq('added_by', user.id)
       .order('created_at', { ascending: false })
     setStudents((data ?? []) as Student[])
     setFetching(false)
@@ -60,14 +61,17 @@ export default function AddStudentsPage() {
     setLoading(true)
     const password = form.password.trim() || form.nisn + '1'
 
-    const { error } = await supabase.from('students').insert({
+    const payload = {
       name: form.name.trim(),
       nisn: form.nisn.trim(),
       grade: form.grade,
       class: form.className,
       password,
-      teacher_id: user.id,
-    })
+      added_by: user.id,
+    }
+    console.log('[AddStudent] inserting:', payload)
+
+    const { error } = await supabase.from('students').insert(payload)
 
     setLoading(false)
 
@@ -100,7 +104,7 @@ export default function AddStudentsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-8 max-w-3xl mx-auto">
+    <PageTransition className="p-6 w-full">
       <div className="mb-8 pl-4 border-l-4 border-[#337357]">
         <h1 className="text-2xl font-bold text-[#1a2e25]">Add Students</h1>
         <p className="text-sm text-[#5a7a6a] mt-0.5">Manage students in your class</p>
@@ -208,6 +212,6 @@ export default function AddStudentsPage() {
           </div>
         )}
       </div>
-    </div>
+    </PageTransition>
   )
 }
