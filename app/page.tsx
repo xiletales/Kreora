@@ -1,0 +1,532 @@
+'use client'
+import { motion } from 'framer-motion'
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import { supabase, Artwork, Profile } from '@/lib/supabase'
+import { ArrowRight, Sparkles, TrendingUp, Users } from 'lucide-react'
+
+interface CategoryGroup {
+  name: string; artworks: Artwork[]; filter: string[]
+}
+
+const CATEGORIES: CategoryGroup[] = [
+  { name: 'Traditional & Digital Art', filter: ['painting', 'illustration', 'digital'], artworks: [] },
+  { name: 'Poster Design', filter: ['poster'], artworks: [] },
+  { name: 'Logo & Branding', filter: ['logo'], artworks: [] },
+]
+
+const ASPECT_RATIOS = [
+  'aspect-[3/4]', 'aspect-square', 'aspect-[4/5]', 'aspect-[2/3]',
+  'aspect-[4/3]', 'aspect-square', 'aspect-[3/4]', 'aspect-[5/4]',
+]
+
+const DEMO: Artwork[] = Array.from({ length: 12 }, (_, i) => ({
+  id: String(i + 1),
+  title: ['Sakura Tree', 'Stop Bullying', 'Abstract Flow', 'Bird Logo', 'Walking Anim', 'Digital Portrait', 'Fun Illus', 'Eco Poster', 'Cubism', 'Starry Night', 'Independence', 'Dolphin'][i],
+  category: ['Painting', 'Poster', 'Illustration', 'Logo', 'Animation', 'Digital', 'Illustration', 'Poster', 'Painting', 'Illustration', 'Poster', 'Illustration'][i],
+  status: 'published',
+  image_url: `https://picsum.photos/seed/home${i+1}/600/${300 + (i % 4) * 80}`,
+  likes: [31, 90, 55, 28, 64, 47, 82, 39, 56, 74, 23, 88][i],
+  creator_id: '',
+  profiles: { id:'', username:'', first_name: ['Karina','Radika','James','Beby','Martin','Lisa','Irene','Novia','Kol','Riko','Una','Martin'][i], last_name:'', email:'', role:'student', created_at:'' },
+  created_at: '', updated_at: ''
+}))
+
+const CAT_COLORS: Record<string, string> = {
+  Painting: 'cat-painting', Poster: 'cat-poster', Illustration: 'cat-illustration',
+  Logo: 'cat-logo', Digital: 'cat-digital', Animation: 'cat-animation',
+}
+
+
+const FLOAT_IMAGES = [
+  { seed: 'hero1', w: 160, h: 210, top: '8%',  right: '4%',  rot: 4,  delay: 1.8 },
+  { seed: 'hero2', w: 120, h: 150, top: '2%',  right: '22%', rot: -3, delay: 2.0 },
+  { seed: 'hero3', w: 100, h: 130, top: '52%', right: '10%', rot: 6,  delay: 2.2 },
+  { seed: 'hero4', w: 130, h: 110, top: '60%', right: '28%', rot: -5, delay: 2.1 },
+]
+
+const stagger = {
+  show: { transition: { staggerChildren: 0.1 } },
+}
+const fadeUp = {
+  hidden: { opacity: 0, y: 24 },
+  show:   { opacity: 1, y: 0, transition: { duration: 0.55, ease: 'easeOut' as const } },
+}
+
+const DEMO_STUDENTS: Profile[] = Array.from({ length: 8 }, (_, i) => ({
+  id: String(i + 1),
+  username: ['karina', 'radika', 'james', 'beby', 'martin', 'lisa', 'irene', 'novia'][i],
+  first_name: ['Karina', 'Radika', 'James', 'Beby', 'Martin', 'Lisa', 'Irene', 'Novia'][i],
+  last_name: ['Putri', 'Rizki', 'Chen', 'Angelia', 'Sitepu', 'Tanaka', 'Park', 'Santoso'][i],
+  email: '',
+  role: 'student',
+  grade: ['XI DKV 1', 'XI DKV 1', 'XI DKV 2', 'XI DKV 2', 'XII DKV 1', 'XII DKV 1', 'XII DKV 2', 'X DKV 1'][i],
+  class: 'SMK DBB',
+  created_at: '',
+}))
+
+export default function HomePage() {
+  const [artworks, setArtworks] = useState<Artwork[]>(DEMO)
+  const [students, setStudents] = useState<Profile[]>(DEMO_STUDENTS)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadFromSubmissions() {
+      const { data: subs, error } = await supabase
+        .from('submissions')
+        .select('id, file_url, nisn, published, submitted_at, assignments(title, category, description)')
+        .eq('published', true)
+        .order('submitted_at', { ascending: false })
+        .limit(12)
+
+      if (error || !subs || subs.length === 0) {
+        setLoading(false)
+        return
+      }
+
+      const nisns = Array.from(new Set(subs.map(s => s.nisn)))
+      const { data: studentRows } = await supabase
+        .from('students')
+        .select('nisn, name, grade, class')
+        .in('nisn', nisns)
+      const studentMap = Object.fromEntries(
+        (studentRows ?? []).map(s => [s.nisn, s])
+      )
+
+      const mapped: Artwork[] = subs
+        .filter(s => s.file_url)
+        .map(s => {
+          const asgn: any = Array.isArray(s.assignments) ? s.assignments[0] : s.assignments
+          const stu: any = studentMap[s.nisn]
+          const fullName = stu?.name ?? `Student ${s.nisn}`
+          const [first, ...rest] = fullName.split(' ')
+          return {
+            id:          s.id,
+            title:       asgn?.title ?? 'Untitled',
+            category:    asgn?.category ?? '',
+            status:      'published',
+            image_url:   s.file_url ?? '',
+            likes:       0,
+            creator_id:  s.nisn,
+            description: asgn?.description ?? '',
+            profiles: {
+              id: '', username: '', email: '', role: 'student',
+              first_name: first ?? 'Student',
+              last_name:  rest.join(' '),
+              grade: stu?.grade,
+              class: stu?.class,
+              created_at: '',
+            },
+            created_at: s.submitted_at,
+            updated_at: '',
+          } as Artwork
+        })
+
+      if (mapped.length > 0) setArtworks(mapped)
+      setLoading(false)
+    }
+
+    async function loadStudents() {
+      const { data } = await supabase
+        .from('students')
+        .select('nisn, name, grade, class')
+        .limit(8)
+      if (!data || data.length === 0) return
+      const mapped: Profile[] = data.map(s => {
+        const [first, ...rest] = (s.name ?? '').split(' ')
+        return {
+          id: s.nisn,
+          nisn: s.nisn,
+          username: s.nisn,
+          first_name: first || 'Student',
+          last_name: rest.join(' '),
+          email: '',
+          role: 'student',
+          grade: s.grade ?? '',
+          class: s.class ?? '',
+          created_at: '',
+        }
+      })
+      setStudents(mapped)
+    }
+
+    loadFromSubmissions()
+    loadStudents()
+  }, [])
+
+  return (
+    <div className="min-h-screen w-full bg-white overflow-x-hidden">
+
+      {/* ═══════════════ HERO (dark) ═══════════════ */}
+      <section className="hero-dark relative w-full min-h-screen flex flex-col justify-center overflow-hidden px-6 sm:px-8 lg:px-12 py-24">
+
+        {/* Subtle noise texture overlay */}
+        <div className="absolute inset-0 opacity-[0.03]"
+          style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }}
+        />
+
+        {/* Rose glow orbs */}
+        <motion.div
+          className="absolute top-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full opacity-20 blur-[120px]"
+          style={{ background: 'radial-gradient(circle, #337357 0%, transparent 70%)' }}
+          animate={{ scale: [1, 1.1, 1], x: [0, 20, 0] }}
+          transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+        />
+        <motion.div
+          className="absolute bottom-[-10%] right-[-5%] w-[400px] h-[400px] rounded-full opacity-15 blur-[100px]"
+          style={{ background: 'radial-gradient(circle, #E27396 0%, transparent 70%)' }}
+          animate={{ scale: [1.1, 1, 1.1] }}
+          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+        />
+
+        {/* Floating artwork cards */}
+        {FLOAT_IMAGES.map((img, i) => (
+          <motion.div
+            key={i}
+            className="hidden lg:block absolute rounded-xl overflow-hidden shadow-2xl"
+            style={{ top: img.top, right: img.right, width: img.w, height: img.h, boxShadow: '0 25px 50px -12px rgba(26,46,37,0.45)' }}
+            initial={{ opacity: 0, y: 20, rotate: img.rot }}
+            animate={{ opacity: 0.85, y: 0, rotate: img.rot }}
+            transition={{ duration: 0.8, delay: img.delay, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <motion.img
+              src={`https://picsum.photos/seed/${img.seed}/${img.w * 2}/${img.h * 2}`}
+              alt=""
+              className="w-full h-full object-cover"
+              animate={{ y: [-6, 6, -6] }}
+              transition={{ duration: 5 + i, repeat: Infinity, ease: 'easeInOut' }}
+            />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(26,46,37,0.32) 0%, transparent 50%)' }} />
+          </motion.div>
+        ))}
+
+        {/* Hero content */}
+        <div className="w-full max-w-screen-xl mx-auto relative z-10 flex flex-col justify-center">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 1.5 }}
+            className="mb-6"
+          >
+            <span className="hero-badge">
+              <Sparkles size={11} /> Student Creative Showcase
+            </span>
+          </motion.div>
+
+          <motion.h1
+            className="font-display font-bold text-white leading-[1.08] mb-6"
+            style={{ fontSize: 'clamp(2.8rem, 7vw, 5.5rem)' }}
+            initial={{ opacity: 0, y: 32 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 1.65, ease: [0.22, 1, 0.36, 1] }}
+          >
+            Where Student<br />
+            <span className="text-gradient-warm italic">Creativity</span>
+            <br />Comes Alive
+          </motion.h1>
+
+          <motion.p
+            className="text-white/80 text-lg max-w-lg mb-10 leading-relaxed"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 1.8, ease: [0.22, 1, 0.36, 1] }}
+          >
+            Discover outstanding artworks from talented SMK students.
+            Portfolios, galleries, and creative journeys — all in one place.
+          </motion.p>
+
+          <motion.div
+            className="flex flex-wrap gap-3"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 1.95, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <Link href="/gallery" className="btn-primary inline-flex items-center gap-2 text-base px-6 py-3">
+              Explore Gallery <ArrowRight size={16} />
+            </Link>
+            <Link href="/login" className="inline-flex items-center gap-2 text-sm font-semibold text-white/90 border border-white/30 hover:border-white/60 hover:text-white px-6 py-3 rounded-lg transition-all">
+              Join as Student
+            </Link>
+          </motion.div>
+        </div>
+
+        {/* Scroll indicator */}
+        <motion.div
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 2.3 }}
+        >
+          <span className="text-white/50 text-xs font-medium tracking-widest uppercase">Scroll</span>
+          <motion.div
+            className="w-px h-12 bg-gradient-to-b from-white/50 to-transparent"
+            animate={{ scaleY: [0.3, 1, 0.3] }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+          />
+        </motion.div>
+      </section>
+
+      {/* ═══════════════ BANNER ═══════════════ */}
+      <section className="py-14 px-4 sm:px-8" style={{ background: '#337357' }}>
+        <div className="max-w-screen-xl mx-auto text-center">
+          <motion.p
+            className="font-display text-2xl sm:text-3xl font-bold text-white mb-2 leading-snug"
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.55, ease: 'easeOut' }}
+          >
+            Empowering student creativity through digital portfolios
+          </motion.p>
+          <motion.p
+            className="text-white/75 text-base"
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.55, delay: 0.1, ease: 'easeOut' }}
+          >
+            Join thousands of students showcasing their best work
+          </motion.p>
+        </div>
+      </section>
+
+      {/* ═══════════════ TRENDING (masonry preview) ═══════════════ */}
+      <section className="py-20 px-4 sm:px-8">
+        <div className="max-w-screen-xl mx-auto">
+          <motion.div
+            className="flex items-end justify-between mb-10"
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-50px' }}
+            transition={{ duration: 0.5 }}
+          >
+            <div>
+              <p className="section-label flex items-center gap-1.5 mb-2"><TrendingUp size={12} /> Trending</p>
+              <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900">
+                Explore Creative Work
+              </h2>
+            </div>
+            <Link href="/gallery" className="hidden sm:flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-rose-600 transition-colors group">
+              View all
+              <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </motion.div>
+
+          {/* Masonry grid */}
+          {loading ? (
+            <div className="masonry">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className={`bh-card ${ASPECT_RATIOS[i % ASPECT_RATIOS.length]} skeleton rounded-xl`} />
+              ))}
+            </div>
+          ) : (
+            <div className="masonry">
+              {artworks.map((art, i) => (
+                <motion.div
+                  key={art.id}
+                  className="bh-card"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-30px' }}
+                  transition={{ duration: 0.45, delay: (i % 4) * 0.07 }}
+                >
+                  <Link href={`/gallery/${art.id}`} className="block bh-card-inner">
+                    <div className="bh-card-img">
+                      <img
+                        src={art.image_url || `https://picsum.photos/seed/art${i}/600/400`}
+                        alt={art.title}
+                        style={{ aspectRatio: [3/4, 1, 4/5, 2/3, 4/3, 1, 3/4, 5/4][i % 8] }}
+                      />
+                      <div className="bh-card-overlay">
+                        <span className={`pill text-[10px] ${CAT_COLORS[art.category] || 'cat-digital'}`}>
+                          {art.category}
+                        </span>
+                        <span className="text-white text-xs font-medium flex items-center gap-1">
+                          ♥ {art.likes || 0}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="bh-card-meta">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{art.title}</p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {art.profiles?.first_name || 'Unknown'} {art.profiles?.last_name || ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 text-gray-400 shrink-0 text-xs">
+                        ♥ <span>{art.likes || 0}</span>
+                      </div>
+                    </div>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          <div className="text-center mt-10 sm:hidden">
+            <Link href="/gallery" className="btn-outline inline-flex items-center gap-2">
+              View all artworks <ArrowRight size={16} />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ CATEGORY SECTIONS ═══════════════ */}
+      {CATEGORIES.map((group, gi) => {
+        const matched = artworks.filter(a =>
+          group.filter.includes((a.category ?? '').toLowerCase())
+        ).slice(0, 4)
+        const fallback = DEMO.slice(gi * 3, gi * 3 + 4)
+        const cards = matched.length > 0 ? matched : fallback
+
+        return (
+          <section key={group.name} className={`py-14 px-4 sm:px-8 ${gi % 2 === 0 ? 'bg-gray-50/60' : 'bg-white'}`}>
+            <div className="max-w-screen-xl mx-auto">
+              <motion.div
+                className="flex items-end justify-between mb-8"
+                initial={{ opacity: 0, x: -16 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true, margin: '-40px' }}
+                transition={{ duration: 0.5 }}
+              >
+                <div>
+                  <p className="section-label mb-2">Category</p>
+                  <h2 className="font-display text-2xl sm:text-3xl font-bold text-gray-900">{group.name}</h2>
+                </div>
+                <Link href="/gallery" className="flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-rose-600 transition-colors group">
+                  See all <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </motion.div>
+
+              <motion.div
+                className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
+                variants={stagger}
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true, margin: '-40px' }}
+              >
+                {cards.map((art, i) => (
+                  <motion.div key={art.id} variants={fadeUp}>
+                    <Link href={`/gallery/${art.id}`} className="block bh-card-inner group rounded-xl overflow-hidden border border-gray-100">
+                      <div className="bh-card-img">
+                        <img
+                          src={art.image_url || `https://picsum.photos/seed/cat${gi}${i}/400/350`}
+                          alt={art.title}
+                          className="w-full aspect-[4/3] object-cover"
+                          style={{ display: 'block' }}
+                        />
+                        <div className="bh-card-overlay">
+                          <span className={`pill text-[10px] ${CAT_COLORS[art.category] || 'cat-digital'}`}>{art.category}</span>
+                          <span className="text-white text-xs">♥ {art.likes}</span>
+                        </div>
+                      </div>
+                      <div className="bh-card-meta">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{art.title}</p>
+                          <p className="text-xs text-gray-500">{art.profiles?.first_name}</p>
+                        </div>
+                      </div>
+                    </Link>
+                  </motion.div>
+                ))}
+              </motion.div>
+            </div>
+          </section>
+        )
+      })}
+
+      {/* ═══════════════ STUDENT PORTFOLIOS ═══════════════ */}
+      <section className="py-20 px-4 sm:px-8 bg-gray-50/60">
+        <div className="max-w-screen-xl mx-auto">
+          <motion.div
+            className="flex items-end justify-between mb-10"
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-50px' }}
+            transition={{ duration: 0.5 }}
+          >
+            <div>
+              <p className="section-label flex items-center gap-1.5 mb-2"><Users size={12} /> Portfolios</p>
+              <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900">
+                Meet Our Students
+              </h2>
+              <p className="text-gray-500 text-sm mt-2">Click a student to explore their creative portfolio</p>
+            </div>
+            <Link href="/portfolio" className="hidden sm:flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-brand-500 transition-colors group">
+              View all
+              <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </motion.div>
+
+          <motion.div
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
+            variants={stagger}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: '-40px' }}
+          >
+            {students.map(s => (
+              <motion.div key={s.id} variants={fadeUp}>
+                <Link href={`/portfolio/${s.nisn ?? s.username}`} className="block bg-white rounded-2xl p-5 border border-gray-100 hover:border-brand-200 hover:shadow-md transition-all group text-center">
+                  <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold mx-auto mb-3 shadow-sm"
+                    style={{ background: 'linear-gradient(135deg, #337357, #285e46)' }}>
+                    {(s.first_name?.[0] || 'S').toUpperCase()}
+                  </div>
+                  <p className="font-bold text-gray-900 text-sm truncate">{s.first_name} {s.last_name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5 truncate">{s.grade}</p>
+                  <p className="text-xs text-brand-500 font-medium mt-2 group-hover:underline">View Portfolio →</p>
+                </Link>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          <div className="text-center mt-8 sm:hidden">
+            <Link href="/portfolio" className="btn-outline inline-flex items-center gap-2">
+              All Portfolios <ArrowRight size={16} />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ CTA SECTION ═══════════════ */}
+      <section className="py-24 px-4 sm:px-8">
+        <div className="max-w-screen-xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 32 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-60px' }}
+            transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+            className="relative rounded-3xl overflow-hidden"
+            style={{ background: 'linear-gradient(135deg, #337357 0%, #2a5e47 50%, #337357 100%)' }}
+          >
+            {/* Pink glow */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full opacity-30 blur-[80px]"
+              style={{ background: 'radial-gradient(circle, #FFDBE5 0%, transparent 70%)' }}
+            />
+            <div className="relative z-10 py-20 px-8 sm:px-16 text-center">
+              <div className="flex justify-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(255,219,229,0.2)' }}>
+                  <Sparkles size={22} className="text-[#FFDBE5]" />
+                </div>
+              </div>
+              <h2 className="font-display text-3xl sm:text-4xl font-bold text-white mb-4">
+                Ready to Showcase Your Art?
+              </h2>
+              <p className="text-white/80 mb-10 max-w-md mx-auto leading-relaxed">
+                Join Kreora and share your creative journey with students, teachers, and the world.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Link href="/signup" className="btn-primary text-base px-8 py-3 inline-flex items-center gap-2">
+                  Get Started <ArrowRight size={16} />
+                </Link>
+                <Link href="/gallery" className="inline-flex items-center gap-2 text-sm font-semibold text-white/90 border border-white/30 hover:border-white/60 hover:text-white px-8 py-3 rounded-lg transition-all">
+                  Browse Gallery
+                </Link>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+    </div>
+  )
+}
