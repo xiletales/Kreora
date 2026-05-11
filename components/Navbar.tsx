@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useAuth } from '@/context/AuthContext'
+import { useTeacherAuth } from '@/context/TeacherAuthContext'
 import { useState, useEffect } from 'react'
 import { Menu, X, Search, ChevronDown, LayoutDashboard, User, LogOut } from 'lucide-react'
 
@@ -23,7 +23,7 @@ interface StudentSession {
 export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { user, role, teacherProfile, signOut } = useAuth()
+  const { user, role, teacherProfile, signOut } = useTeacherAuth()
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchVal, setSearchVal] = useState('')

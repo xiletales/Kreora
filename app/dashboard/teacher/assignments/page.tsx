@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/context/AuthContext'
+import { useTeacherAuth } from '@/context/TeacherAuthContext'
 import { Plus, Trash2, X, ClipboardList, Loader2, AlertCircle, Pencil, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
@@ -50,7 +50,7 @@ function deadlineBadge(deadline: string) {
 }
 
 export default function AssignmentsPage() {
-  const { user } = useAuth()
+  const { user } = useTeacherAuth()
   const [assignments, setAssignments]   = useState<Assignment[]>([])
   const [teacherClasses, setTeacherClasses] = useState<string[]>([])
   const [loading, setLoading]           = useState(true)
@@ -190,6 +190,7 @@ export default function AssignmentsPage() {
 
     let arr = assignments
 
+    if (activeClass !== ALL_CLASSES) arr = arr.filter(a => a.class === activeClass)
     if (filterCategory !== 'All') arr = arr.filter(a => a.category === filterCategory)
     if (filterDeadline !== 'All') {
       arr = arr.filter(a => {
@@ -337,6 +338,16 @@ export default function AssignmentsPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Class filter tabs */}
+      {!loading && !fetchError && assignments.length > 0 && (
+        <ClassFilterTabs
+          classes={classesForTabs}
+          selected={activeClass}
+          onChange={setActiveClass}
+          className="mb-4"
+        />
       )}
 
       {/* Filters */}

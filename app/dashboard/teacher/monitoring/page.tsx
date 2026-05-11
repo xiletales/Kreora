@@ -1,17 +1,17 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/context/AuthContext'
-import { Users, ClipboardList, FileText, TrendingUp } from 'lucide-react'
+import { useTeacherAuth } from '@/context/TeacherAuthContext'
+import { Users, ClipboardList, FileText, TrendingUp, AlertCircle } from 'lucide-react'
 import PageTransition from '@/components/PageTransition'
 import ClassFilterTabs, { ALL_CLASSES } from '@/components/ClassFilterTabs'
 import Pagination from '@/components/Pagination'
 import SearchInput from '@/components/SearchInput'
+import { GRADE_POINTS } from '@/lib/constants'
 
 const PAGE_SIZE = 15
 
 interface Student {
-  id: string
   nisn: string
   name: string
   grade: string
@@ -28,6 +28,7 @@ interface StudentRow extends Student {
 interface Assignment {
   id: string
   title: string
+  class: string | null
 }
 
 interface Submission {
@@ -37,14 +38,13 @@ interface Submission {
   assignment_id: string
 }
 
-const GRADE_POINTS: Record<string, number> = { A: 4, B: 3, C: 2, D: 1 }
-
 export default function MonitoringPage() {
-  const { user } = useAuth()
+  const { user } = useTeacherAuth()
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [submissions, setSubmissions] = useState<Submission[]>([])
   const [rows, setRows] = useState<StudentRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [activeClass, setActiveClass] = useState(ALL_CLASSES)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -54,11 +54,23 @@ export default function MonitoringPage() {
   const load = useCallback(async () => {
     if (!user) return
     setLoading(true)
+    setFetchError(null)
 
-    const [{ data: studentsData }, { data: asgs }] = await Promise.all([
-      supabase.from('students').select('id, nisn, name, grade, class').eq('added_by', user.id),
-      supabase.from('assignments').select('id, title').eq('teacher_id', user.id),
+    const [
+      { data: studentsData, error: studentsErr },
+      { data: asgs, error: asgsErr },
+    ] = await Promise.all([
+      supabase.from('students').select('nisn, name, grade, class').eq('added_by', user.id),
+      supabase.from('assignments').select('id, title, class').eq('teacher_id', user.id),
     ])
+
+    if (studentsErr || asgsErr) {
+      const err = studentsErr ?? asgsErr
+      console.error('[Monitoring] fetch error:', err)
+      setFetchError(`${err!.message} (code: ${err!.code})`)
+      setLoading(false)
+      return
+    }
 
     const directStudents: Student[] = studentsData ?? []
     const assignmentList: Assignment[] = asgs ?? []
@@ -68,10 +80,16 @@ export default function MonitoringPage() {
 
     let subs: Submission[] = []
     if (assignmentIds.length > 0) {
-      const { data } = await supabase
+      const { data, error: subsErr } = await supabase
         .from('submissions')
         .select('nisn, submitted_at, grade, assignment_id')
         .in('assignment_id', assignmentIds)
+      if (subsErr) {
+        console.error('[Monitoring] submissions fetch error:', subsErr)
+        setFetchError(`${subsErr.message} (code: ${subsErr.code})`)
+        setLoading(false)
+        return
+      }
       subs = data ?? []
     }
     setSubmissions(subs)
@@ -85,11 +103,16 @@ export default function MonitoringPage() {
     const missingNisns = submissionNisns.filter(n => !studentMap.has(n))
 
     if (missingNisns.length > 0) {
-      // Fetch profile data for orphan nisns directly (no added_by filter so RLS isn't a factor here)
-      const { data: extra } = await supabase
+      const { data: extra, error: extraErr } = await supabase
         .from('students')
-        .select('id, nisn, name, grade, class')
+        .select('nisn, name, grade, class')
         .in('nisn', missingNisns)
+      if (extraErr) {
+        console.error('[Monitoring] orphan-nisn fetch error:', extraErr)
+        setFetchError(`${extraErr.message} (code: ${extraErr.code})`)
+        setLoading(false)
+        return
+      }
       ;(extra ?? []).forEach(s => studentMap.set(s.nisn, s as Student))
     }
 
@@ -158,29 +181,37 @@ export default function MonitoringPage() {
 
   const visibleNisns = useMemo(() => new Set(visibleRows.map(r => r.nisn)), [visibleRows])
 
-  const filteredSubmissions = useMemo(
-    () => activeClass === ALL_CLASSES ? submissions : submissions.filter(s => visibleNisns.has(s.nisn)),
-    [submissions, activeClass, visibleNisns],
+  const visibleAssignments = useMemo(() =>
+    activeClass === ALL_CLASSES
+      ? assignments
+      : assignments.filter(a => a.class === activeClass),
+    [assignments, activeClass],
   )
+  const visibleAssignmentIds = useMemo(() => new Set(visibleAssignments.map(a => a.id)), [visibleAssignments])
+
+  const filteredSubmissions = useMemo(() => {
+    const inClassRows = activeClass === ALL_CLASSES ? submissions : submissions.filter(s => visibleNisns.has(s.nisn))
+    return activeClass === ALL_CLASSES ? inClassRows : inClassRows.filter(s => visibleAssignmentIds.has(s.assignment_id))
+  }, [submissions, activeClass, visibleNisns, visibleAssignmentIds])
 
   const totalSubmissions = filteredSubmissions.length
-  const totalPossible    = visibleRows.length * assignments.length
+  const totalPossible    = visibleRows.length * visibleAssignments.length
   const submissionRate   = totalPossible > 0
     ? Math.round((totalSubmissions / totalPossible) * 100)
     : 0
 
   const chartData = useMemo(() => {
-    return assignments.map(a => {
+    return visibleAssignments.map(a => {
       const count = filteredSubmissions.filter(s => s.assignment_id === a.id).length
       return { id: a.id, title: a.title, count }
     })
-  }, [assignments, filteredSubmissions])
+  }, [visibleAssignments, filteredSubmissions])
 
   const maxCount = Math.max(1, ...chartData.map(d => d.count))
 
   const STAT_CARDS = [
     { label: 'Total Students',     value: visibleRows.length,           icon: Users,         color: 'text-brand-green-dark', bg: 'bg-brand-green' },
-    { label: 'Total Assignments',  value: assignments.length,           icon: ClipboardList, color: 'text-blue-600',  bg: 'bg-blue-50'      },
+    { label: 'Total Assignments',  value: visibleAssignments.length,    icon: ClipboardList, color: 'text-blue-600',  bg: 'bg-blue-50'      },
     { label: 'Total Submissions',  value: totalSubmissions,             icon: FileText,      color: 'text-amber-600', bg: 'bg-amber-50'     },
     { label: 'Submission Rate',    value: `${submissionRate}%`,         icon: TrendingUp,    color: 'text-brand-pink-dark', bg: 'bg-brand-pink/50' },
   ]
@@ -207,6 +238,16 @@ export default function MonitoringPage() {
         <h1 className="text-2xl font-bold text-gray-800">Monitoring</h1>
         <p className="text-sm text-gray-600 mt-0.5">Track student activity and submission progress</p>
       </div>
+
+      {fetchError && (
+        <div className="flex items-start gap-3 bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-xl px-4 py-3 mb-6">
+          <AlertCircle size={16} className="shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold">Failed to load monitoring data</p>
+            <p className="text-xs mt-0.5 text-rose-600">{fetchError}</p>
+          </div>
+        </div>
+      )}
 
       {!loading && rows.length > 0 && (
         <div className="space-y-3 mb-5">
@@ -242,8 +283,8 @@ export default function MonitoringPage() {
           <h2 className="font-semibold text-gray-800 text-sm mb-1">Submission Activity by Assignment</h2>
           <p className="text-xs text-gray-600 mb-5">How many students have submitted each assignment</p>
 
-          <div className="flex items-end gap-3 h-56 pl-10 relative">
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 -rotate-90 text-[10px] font-semibold uppercase tracking-wide text-gray-600">
+          <div className="flex items-end gap-3 h-56 pl-2 sm:pl-10 relative">
+            <span className="hidden sm:block absolute left-0 top-1/2 -translate-y-1/2 -rotate-90 text-[10px] font-semibold uppercase tracking-wide text-gray-600">
               Submissions
             </span>
             <span className="absolute left-6 top-0 text-[10px] text-gray-600">{maxCount}</span>

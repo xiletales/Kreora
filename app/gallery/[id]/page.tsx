@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase, Artwork } from '@/lib/supabase'
-import { useAuth } from '@/context/AuthContext'
+import { useTeacherAuth } from '@/context/TeacherAuthContext'
 import { Heart, ArrowLeft, Send, Share2, Bookmark, User, Search } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
@@ -25,7 +25,7 @@ interface Comment {
 
 export default function ArtworkDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { user } = useAuth()
+  const { user } = useTeacherAuth()
   const [artwork, setArtwork] = useState<Artwork | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')

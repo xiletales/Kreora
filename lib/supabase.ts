@@ -1,8 +1,8 @@
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/auth-helpers-nextjs'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://szhinflqcgbsazjzhhcu.supabase.co'
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6aGluZmxxY2dic2F6anpoaGN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNjM0ODUsImV4cCI6MjA5MjgzOTQ4NX0.9KdWnHKJT8PRgy_Mho6N2fmqQbpTQBlfvLXBYc7OO9g'
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
 
 export type UserRole = 'student' | 'teacher'
 

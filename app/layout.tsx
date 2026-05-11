@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import { AuthProvider } from '@/context/AuthContext'
+import { TeacherAuthProvider } from '@/context/TeacherAuthContext'
 import ConditionalLayout from '@/components/ConditionalLayout'
 import LoadingScreen from '@/components/LoadingScreen'
 import { Toaster } from 'react-hot-toast'
@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen flex flex-col" suppressHydrationWarning>
         <LoadingScreen />
-        <AuthProvider>
+        <TeacherAuthProvider>
           <ConditionalLayout>{children}</ConditionalLayout>
           <Toaster
             position="top-right"
@@ -33,7 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               success: { iconTheme: { primary: '#E27396', secondary: '#fff' } },
             }}
           />
-        </AuthProvider>
+        </TeacherAuthProvider>
       </body>
     </html>
   )

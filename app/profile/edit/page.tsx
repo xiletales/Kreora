@@ -3,13 +3,13 @@ import { motion } from 'framer-motion'
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/context/AuthContext'
+import { useTeacherAuth } from '@/context/TeacherAuthContext'
 import { ArrowLeft, Camera, Save } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 
 export default function EditProfilePage() {
-  const { user, teacherProfile } = useAuth()
+  const { user, teacherProfile } = useTeacherAuth()
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
   const [form, setForm] = useState({

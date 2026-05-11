@@ -20,7 +20,7 @@ export interface TeacherProfile {
   photo_url: string | null
 }
 
-interface AuthContextType {
+interface TeacherAuthContextType {
   user: User | null
   role: 'teacher' | null
   teacherProfile: TeacherProfile | null
@@ -28,12 +28,16 @@ interface AuthContextType {
   signOut: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextType>({
+/**
+ * This context handles teacher auth only (Supabase session).
+ * Student auth is handled separately via the `kreora_student_session` cookie.
+ */
+const TeacherAuthContext = createContext<TeacherAuthContextType>({
   user: null, role: null, teacherProfile: null, loading: true,
   signOut: async () => {},
 })
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function TeacherAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [role, setRole] = useState<'teacher' | null>(null)
   const [teacherProfile, setTeacherProfile] = useState<TeacherProfile | null>(null)
@@ -88,10 +92,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, role, teacherProfile, loading, signOut }}>
+    <TeacherAuthContext.Provider value={{ user, role, teacherProfile, loading, signOut }}>
       {children}
-    </AuthContext.Provider>
+    </TeacherAuthContext.Provider>
   )
 }
 
-export const useAuth = () => useContext(AuthContext)
+export const useTeacherAuth = () => useContext(TeacherAuthContext)

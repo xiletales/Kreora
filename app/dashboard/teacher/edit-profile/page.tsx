@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/context/AuthContext'
+import { useTeacherAuth } from '@/context/TeacherAuthContext'
 import { useRouter } from 'next/navigation'
 import { Camera, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -29,7 +29,7 @@ const EMPTY_PASS = { newPassword: '', confirmPassword: '' }
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function EditProfilePage() {
-  const { user } = useAuth()
+  const { user } = useTeacherAuth()
   const router = useRouter()
 
   const [teacher, setTeacher] = useState<TeacherProfile | null>(null)

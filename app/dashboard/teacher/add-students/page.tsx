@@ -1,9 +1,10 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/context/AuthContext'
+import { useTeacherAuth } from '@/context/TeacherAuthContext'
 import { UserPlus, Edit2, Trash2, X, Users, Copy, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
+import ClassFilterTabs, { ALL_CLASSES } from '@/components/ClassFilterTabs'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -17,19 +18,21 @@ interface Student {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
+// Hardcoded options for the add/edit forms — may need to be adjusted to match
+// school conventions. The class FILTER above the table is derived dynamically
+// from the loaded students, so it always matches real data.
 const GRADES = ['10', '11', '12']
 const CLASSES = ['A', 'B', 'C']
-const CLASS_TABS = ['All', 'Class A', 'Class B', 'Class C']
 
 const EMPTY_ADD = { nisn: '', name: '', grade: '10', class: 'A', department: '' }
 
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function AddStudentsPage() {
-  const { user } = useAuth()
+  const { user } = useTeacherAuth()
 
   const [students, setStudents] = useState<Student[]>([])
-  const [activeTab, setActiveTab] = useState('All')
+  const [activeClass, setActiveClass] = useState(ALL_CLASSES)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -69,11 +72,22 @@ export default function AddStudentsPage() {
 
   // ── Client-side filter ─────────────────────────────────────────────────────
 
+  const classesForTabs = useMemo(() => {
+    const set = new Set<string>()
+    students.forEach(s => {
+      const label = [s.grade, s.class].filter(Boolean).join(' ').trim()
+      if (label) set.add(label)
+    })
+    return Array.from(set).sort()
+  }, [students])
+
   const filtered = useMemo(() => {
-    if (activeTab === 'All') return students
-    const cls = activeTab.replace('Class ', '')
-    return students.filter(s => s.class === cls)
-  }, [students, activeTab])
+    if (activeClass === ALL_CLASSES) return students
+    return students.filter(s => {
+      const label = [s.grade, s.class].filter(Boolean).join(' ').trim()
+      return label === activeClass
+    })
+  }, [students, activeClass])
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -346,25 +360,13 @@ export default function AddStudentsPage() {
       )}
 
       {/* ── Class filter tabs ── */}
-      <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-0.5">
-        {CLASS_TABS.map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
-              activeTab === tab
-                ? 'bg-brand-green-dark text-white border-brand-green-dark shadow-sm'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-brand-green-dark hover:text-brand-green-dark'
-            }`}
-          >
-            {tab}
-            {tab !== 'All' && (
-              <span className={`ml-1.5 text-xs ${activeTab === tab ? 'text-white/70' : 'text-gray-400'}`}>
-                ({students.filter(s => s.class === tab.replace('Class ', '')).length})
-              </span>
-            )}
-          </button>
-        ))}
+      <div className="flex items-center gap-3 mb-5">
+        <ClassFilterTabs
+          classes={classesForTabs}
+          selected={activeClass}
+          onChange={setActiveClass}
+          className="flex-1 min-w-0"
+        />
         <span className="text-xs text-gray-400 ml-auto shrink-0">{filtered.length} students</span>
       </div>
 
@@ -379,10 +381,10 @@ export default function AddStudentsPage() {
             <Users size={22} className="text-gray-300" />
           </div>
           <p className="font-semibold text-gray-700">
-            {activeTab === 'All' ? 'No students added yet.' : `No students in ${activeTab}`}
+            {activeClass === ALL_CLASSES ? 'No students added yet.' : `No students in ${activeClass}`}
           </p>
           <p className="text-sm text-gray-400 mt-1">
-            {activeTab === 'All' ? 'Click "Add Student" to begin.' : 'Add a student or change the class filter.'}
+            {activeClass === ALL_CLASSES ? 'Click "Add Student" to begin.' : 'Add a student or change the class filter.'}
           </p>
         </div>
       ) : (

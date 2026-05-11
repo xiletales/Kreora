@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/context/AuthContext'
+import { useTeacherAuth } from '@/context/TeacherAuthContext'
 import { Send, Download, MessageSquare, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageTransition from '@/components/PageTransition'
@@ -37,7 +37,7 @@ function fmt(iso: string) {
 }
 
 export default function FeedbackPage() {
-  const { user } = useAuth()
+  const { user } = useTeacherAuth()
   const [items, setItems] = useState<SubmissionItem[]>([])
   const [loading, setLoading] = useState(true)
   const [inputs, setInputs] = useState<Record<string, string>>({})

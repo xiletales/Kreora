@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/context/AuthContext'
+import { useTeacherAuth } from '@/context/TeacherAuthContext'
 import { Palette, Download, Eye, EyeOff, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageTransition from '@/components/PageTransition'
@@ -40,7 +40,7 @@ function statusBadge(published: boolean) {
 const filterSelectCls = 'text-xs font-medium text-gray-800 bg-white border border-brand-green-dark rounded-lg px-3 py-1.5 outline-none focus:border-brand-pink-dark transition-colors'
 
 export default function CurationPage() {
-  const { user } = useAuth()
+  const { user } = useTeacherAuth()
   const [artworks, setArtworks] = useState<Artwork[]>([])
   const [loading, setLoading] = useState(true)
 

@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useAuth } from '@/context/AuthContext'
+import { useTeacherAuth } from '@/context/TeacherAuthContext'
 import {
   LayoutDashboard, ClipboardList, MessageSquare,
   BarChart2, Palette, UserPlus, LogOut, Menu, X,
@@ -31,7 +31,7 @@ const NAV = [
 
 export default function TeacherSidebar({ teacher }: { teacher: Teacher }) {
   const pathname = usePathname()
-  const { signOut } = useAuth()
+  const { signOut } = useTeacherAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   useEffect(() => { setMobileOpen(false) }, [pathname])

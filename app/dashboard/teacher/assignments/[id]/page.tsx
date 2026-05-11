@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/context/AuthContext'
+import { useTeacherAuth } from '@/context/TeacherAuthContext'
 import {
   ArrowLeft, Pencil, X, Loader2, Calendar, Tag, GraduationCap,
   CheckCircle, Clock, AlertCircle, Download,
@@ -65,7 +65,7 @@ function fmt(iso: string) {
 export default function AssignmentDetailPage() {
   const { id } = useParams<{ id: string }>()
   const searchParams = useSearchParams()
-  const { user } = useAuth()
+  const { user } = useTeacherAuth()
 
   const [assignment, setAssignment] = useState<Assignment | null>(null)
   const [students, setStudents] = useState<Student[]>([])

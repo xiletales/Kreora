@@ -2,7 +2,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/context/AuthContext'
+import { useTeacherAuth } from '@/context/TeacherAuthContext'
 import { X, Upload, CloudUpload } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -12,7 +12,7 @@ const CATEGORIES = ['Painting', 'Poster', 'Illustration', 'Logo', 'Digital', 'An
 const STATUSES = ['In Progress', 'Published', 'Pending']
 
 export default function UploadArtworkModal({ open, onClose, onUploaded }: Props) {
-  const { user } = useAuth()
+  const { user } = useTeacherAuth()
   const fileRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string>('')
