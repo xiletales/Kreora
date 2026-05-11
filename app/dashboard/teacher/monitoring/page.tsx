@@ -91,11 +91,6 @@ export default function MonitoringPage() {
         .select('id, nisn, name, grade, class')
         .in('nisn', missingNisns)
       ;(extra ?? []).forEach(s => studentMap.set(s.nisn, s as Student))
-
-      // Whatever remains has no profile — render with placeholder name so monitoring isn't blank
-      missingNisns
-        .filter(n => !studentMap.has(n))
-        .forEach(n => studentMap.set(n, { id: n, nisn: n, name: `Student ${n}`, grade: '', class: '' }))
     }
 
     const allStudents = Array.from(studentMap.values())
@@ -340,7 +335,7 @@ export default function MonitoringPage() {
                           className="w-7 h-7 rounded-full flex items-center justify-center text-brand-pink-dark text-xs font-bold shrink-0"
                           style={{ background: 'linear-gradient(135deg, #F9D5E5, #F0A8C4)' }}
                         >
-                          {st.name[0]?.toUpperCase() ?? '?'}
+                          {st.name?.[0]?.toUpperCase() || 'S'}
                         </div>
                         <span className="font-medium text-gray-800">{st.name}</span>
                       </div>

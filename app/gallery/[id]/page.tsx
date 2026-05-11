@@ -39,14 +39,14 @@ export default function ArtworkDetailPage() {
 
   const LIKE_KEY = `kreora_liked_${id}`
 
-  const getGuestId = () => {
-    if (typeof window === 'undefined') return 'guest'
-    let gid = localStorage.getItem('kreora_guest_id')
-    if (!gid) {
-      gid = 'guest_' + Math.random().toString(36).substr(2, 9)
-      localStorage.setItem('kreora_guest_id', gid)
+  const getGuestId = (): string => {
+    if (typeof window === 'undefined') return 'guest_default'
+    let id = localStorage.getItem('kreora_guest_id')
+    if (!id) {
+      id = 'guest_' + Math.random().toString(36).substr(2, 9)
+      localStorage.setItem('kreora_guest_id', id)
     }
-    return gid
+    return id
   }
 
   useEffect(() => {
@@ -113,13 +113,17 @@ export default function ArtworkDetailPage() {
         const { comments } = await res.json()
         setComments(comments || [])
 
-        const userIdentifier = user?.id || getGuestId()
-        const likeRes = await fetch(
-          `/api/gallery/toggle-like?submission_id=${id}&user_identifier=${encodeURIComponent(userIdentifier)}`,
-        )
-        const likeData = await likeRes.json()
-        setLiked(likeData.liked)
-        setLikeCount(likeData.count)
+        try {
+          const guestId = getGuestId()
+          const likeRes = await fetch(`/api/gallery/toggle-like?submission_id=${id}&user_identifier=${encodeURIComponent(guestId)}`)
+          if (likeRes.ok) {
+            const likeData = await likeRes.json()
+            setLiked(likeData.liked)
+            setLikeCount(likeData.count)
+          }
+        } catch (e) {
+          console.error('like fetch error:', e)
+        }
       }
 
       setLoading(false)
@@ -128,21 +132,18 @@ export default function ArtworkDetailPage() {
   }, [id, user])
 
   const handleLike = async () => {
-    if (!artwork) return
-    const userIdentifier = user?.id || getGuestId()
-
+    const guestId = getGuestId()
     const prevLiked = liked
     const prevCount = likeCount
-    setLiked(!liked)
-    setLikeCount(prev => liked ? prev - 1 : prev + 1)
-
+    setLiked(!prevLiked)
+    setLikeCount(prevLiked ? prevCount - 1 : prevCount + 1)
     try {
       const res = await fetch('/api/gallery/toggle-like', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           submission_id: id,
-          user_identifier: userIdentifier
+          user_identifier: guestId
         })
       })
       const result = await res.json()
