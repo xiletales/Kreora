@@ -77,7 +77,7 @@ export default function AssignmentsPage() {
 
     const { data, error } = await supabase
       .from('assignments')
-      .select('id, teacher_id, title, category, class, deadline, description, created_at')
+      .select('*')
       .eq('teacher_id', user.id)
       .order('created_at', { ascending: false })
 
@@ -190,9 +190,6 @@ export default function AssignmentsPage() {
 
     let arr = assignments
 
-    if (activeClass !== ALL_CLASSES) {
-      arr = arr.filter(a => (a.class ?? '') === activeClass)
-    }
     if (filterCategory !== 'All') arr = arr.filter(a => a.category === filterCategory)
     if (filterDeadline !== 'All') {
       arr = arr.filter(a => {
@@ -237,16 +234,6 @@ export default function AssignmentsPage() {
           New Assignment
         </button>
       </div>
-
-      {/* Class filter tabs */}
-      {!loading && !fetchError && (
-        <ClassFilterTabs
-          classes={classesForTabs}
-          selected={activeClass}
-          onChange={setActiveClass}
-          className="mb-5"
-        />
-      )}
 
       {/* Error banner */}
       {fetchError && (
