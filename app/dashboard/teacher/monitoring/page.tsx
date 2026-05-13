@@ -16,13 +16,9 @@ interface Student {
   name: string
   grade: string
   class: string
-}
-
-interface StudentRow extends Student {
-  submitted: number
-  graded: number
-  lastActive: string | null
-  avgGrade: number | null
+  added_by?: string
+  password?: string
+  created_at?: string
 }
 
 interface Assignment {
@@ -40,9 +36,9 @@ interface Submission {
 
 export default function MonitoringPage() {
   const { user } = useTeacherAuth()
+  const [students, setStudents] = useState<Student[]>([])
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [submissions, setSubmissions] = useState<Submission[]>([])
-  const [rows, setRows] = useState<StudentRow[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [activeClass, setActiveClass] = useState(ALL_CLASSES)
@@ -56,76 +52,61 @@ export default function MonitoringPage() {
     setLoading(true)
     setFetchError(null)
 
-    const [
-      { data: studentsData, error: studentsErr },
-      { data: asgs, error: asgsErr },
-    ] = await Promise.all([
-      supabase.from('students').select('nisn, name, grade, class').eq('added_by', user.id),
-      supabase.from('assignments').select('id, title, class').eq('teacher_id', user.id),
-    ])
+    const { data: studentsData, error: studentsError } = await supabase
+      .from('students')
+      .select('*')
+      .eq('added_by', user.id)
 
-    if (studentsErr || asgsErr) {
-      const err = studentsErr ?? asgsErr
-      console.error('[Monitoring] fetch error:', err)
-      setFetchError(`${err!.message} (code: ${err!.code})`)
+    console.log('students result:', studentsData, studentsError)
+
+    if (studentsError) {
+      console.error('[Monitoring] students fetch error:', studentsError)
+      setFetchError(`${studentsError.message} (code: ${studentsError.code})`)
       setLoading(false)
       return
     }
 
-    const directStudents: Student[] = studentsData ?? []
-    const assignmentList: Assignment[] = asgs ?? []
-    const assignmentIds = assignmentList.map(a => a.id)
+    setStudents(studentsData || [])
 
-    setAssignments(assignmentList)
+    const { data: asgs, error: asgsErr } = await supabase
+      .from('assignments')
+      .select('id, title, class')
+      .eq('teacher_id', user.id)
 
-    let subs: Submission[] = []
-    if (assignmentIds.length > 0) {
-      const { data, error: subsErr } = await supabase
+    if (asgsErr) {
+      console.error('[Monitoring] assignments fetch error:', asgsErr)
+      setFetchError(`${asgsErr.message} (code: ${asgsErr.code})`)
+      setLoading(false)
+      return
+    }
+
+    setAssignments(asgs ?? [])
+
+    const nisns = studentsData?.map(s => s.nisn) || []
+    if (nisns.length > 0) {
+      const { data: subsData, error: subsErr } = await supabase
         .from('submissions')
-        .select('nisn, submitted_at, grade, assignment_id')
-        .in('assignment_id', assignmentIds)
+        .select('*')
+        .in('nisn', nisns)
       if (subsErr) {
         console.error('[Monitoring] submissions fetch error:', subsErr)
         setFetchError(`${subsErr.message} (code: ${subsErr.code})`)
         setLoading(false)
         return
       }
-      subs = data ?? []
-    }
-    setSubmissions(subs)
-
-    // Build the student set: union of teacher's students + nisns that appear in submissions.
-    // This guards against the students table being unavailable / partially blocked by RLS.
-    const studentMap = new Map<string, Student>()
-    directStudents.forEach(s => studentMap.set(s.nisn, s))
-
-    const submissionNisns = Array.from(new Set(subs.map(s => s.nisn)))
-    const missingNisns = submissionNisns.filter(n => !studentMap.has(n))
-
-    if (missingNisns.length > 0) {
-      const { data: extra, error: extraErr } = await supabase
-        .from('students')
-        .select('nisn, name, grade, class')
-        .in('nisn', missingNisns)
-      if (extraErr) {
-        console.error('[Monitoring] orphan-nisn fetch error:', extraErr)
-        setFetchError(`${extraErr.message} (code: ${extraErr.code})`)
-        setLoading(false)
-        return
-      }
-      ;(extra ?? []).forEach(s => studentMap.set(s.nisn, s as Student))
+      setSubmissions(subsData || [])
+    } else {
+      setSubmissions([])
     }
 
-    const allStudents = Array.from(studentMap.values())
+    setLoading(false)
+  }, [user])
 
-    const subsByNisn: Record<string, Submission[]> = {}
-    subs.forEach(s => {
-      if (!subsByNisn[s.nisn]) subsByNisn[s.nisn] = []
-      subsByNisn[s.nisn].push(s)
-    })
+  useEffect(() => { load() }, [load])
 
-    const studentRows: StudentRow[] = allStudents.map(st => {
-      const mySubs = subsByNisn[st.nisn] ?? []
+  const rows = useMemo(() => {
+    return students.map(st => {
+      const mySubs = submissions.filter(s => s.nisn === st.nisn)
       const latestSub = [...mySubs].sort(
         (a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime(),
       )[0]
@@ -137,27 +118,22 @@ export default function MonitoringPage() {
         : null
       return {
         ...st,
-        submitted:  mySubs.length,
-        graded:     points.length,
+        submissionCount: mySubs.length,
+        graded: points.length,
         lastActive: latestSub?.submitted_at ?? null,
         avgGrade,
       }
-    })
-
-    setRows(studentRows.sort((a, b) => b.submitted - a.submitted))
-    setLoading(false)
-  }, [user])
-
-  useEffect(() => { load() }, [load])
+    }).sort((a, b) => b.submissionCount - a.submissionCount)
+  }, [students, submissions])
 
   const classList = useMemo(() => {
     const set = new Set<string>()
-    rows.forEach(r => {
+    students.forEach(r => {
       const label = [r.grade, r.class].filter(Boolean).join(' ').trim()
       if (label) set.add(label)
     })
     return Array.from(set).sort()
-  }, [rows])
+  }, [students])
 
   const visibleRows = useMemo(() => {
     let arr = rows
@@ -210,7 +186,7 @@ export default function MonitoringPage() {
   const maxCount = Math.max(1, ...chartData.map(d => d.count))
 
   const STAT_CARDS = [
-    { label: 'Total Students',     value: visibleRows.length,           icon: Users,         color: 'text-brand-green-dark', bg: 'bg-brand-green' },
+    { label: 'Total Students',     value: students.length,              icon: Users,         color: 'text-brand-green-dark', bg: 'bg-brand-green' },
     { label: 'Total Assignments',  value: visibleAssignments.length,    icon: ClipboardList, color: 'text-blue-600',  bg: 'bg-blue-50'      },
     { label: 'Total Submissions',  value: totalSubmissions,             icon: FileText,      color: 'text-amber-600', bg: 'bg-amber-50'     },
     { label: 'Submission Rate',    value: `${submissionRate}%`,         icon: TrendingUp,    color: 'text-brand-pink-dark', bg: 'bg-brand-pink/50' },
@@ -249,7 +225,7 @@ export default function MonitoringPage() {
         </div>
       )}
 
-      {!loading && rows.length > 0 && (
+      {!loading && students.length > 0 && (
         <div className="space-y-3 mb-5">
           <SearchInput
             value={search}
@@ -338,7 +314,7 @@ export default function MonitoringPage() {
           <div className="h-10 bg-brand-off-white border-b border-brand-green-dark" />
           {[...Array(5)].map((_, i) => <div key={i} className="h-14 border-b border-brand-green-dark" />)}
         </div>
-      ) : rows.length === 0 ? (
+      ) : students.length === 0 ? (
         <div className="bg-white border border-brand-green-dark rounded-xl shadow-sm p-8 text-center">
           <p className="font-semibold text-gray-800">No student activity yet.</p>
           <p className="text-sm text-gray-600 mt-1">
@@ -387,11 +363,11 @@ export default function MonitoringPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full ${
-                        st.submitted > 0
+                        st.submissionCount > 0
                           ? 'bg-brand-green text-brand-green-dark'
                           : 'bg-amber-100 text-amber-700'
                       }`}>
-                        {st.submitted}/{assignments.length}
+                        {st.submissionCount}/{assignments.length}
                       </span>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell text-gray-600 text-xs font-medium">
