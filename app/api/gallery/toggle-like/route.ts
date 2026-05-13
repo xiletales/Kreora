@@ -6,6 +6,34 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const submission_id = searchParams.get('submission_id')
+  const user_identifier = searchParams.get('user_identifier')
+
+  if (!submission_id) {
+    return NextResponse.json({ count: 0, liked: false })
+  }
+
+  const { count } = await supabaseAdmin
+    .from('likes')
+    .select('*', { count: 'exact', head: true })
+    .eq('submission_id', submission_id)
+
+  let liked = false
+  if (user_identifier) {
+    const { data } = await supabaseAdmin
+      .from('likes')
+      .select('id')
+      .eq('submission_id', submission_id)
+      .eq('nisn', user_identifier)
+      .maybeSingle()
+    liked = !!data
+  }
+
+  return NextResponse.json({ count: count || 0, liked })
+}
+
 export async function POST(req: NextRequest) {
   const { submission_id, user_identifier } = await req.json()
 
@@ -18,7 +46,7 @@ export async function POST(req: NextRequest) {
     .select('id')
     .eq('submission_id', submission_id)
     .eq('nisn', user_identifier)
-    .single()
+    .maybeSingle()
 
   if (existing) {
     await supabaseAdmin
@@ -36,7 +64,7 @@ export async function POST(req: NextRequest) {
     await supabaseAdmin
       .from('likes')
       .insert({
-        submission_id,
+        submission_id: submission_id,
         nisn: user_identifier,
       })
 
@@ -47,30 +75,4 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ liked: true, count: count || 0 })
   }
-}
-
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const submission_id = searchParams.get('submission_id')
-  const user_identifier = searchParams.get('user_identifier')
-
-  if (!submission_id) return NextResponse.json({ count: 0, liked: false })
-
-  const { count } = await supabaseAdmin
-    .from('likes')
-    .select('*', { count: 'exact', head: true })
-    .eq('submission_id', submission_id)
-
-  let liked = false
-  if (user_identifier) {
-    const { data } = await supabaseAdmin
-      .from('likes')
-      .select('id')
-      .eq('submission_id', submission_id)
-      .eq('nisn', user_identifier)
-      .single()
-    liked = !!data
-  }
-
-  return NextResponse.json({ count: count || 0, liked })
 }

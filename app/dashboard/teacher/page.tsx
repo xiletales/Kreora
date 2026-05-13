@@ -31,8 +31,10 @@ export default async function TeacherOverviewPage() {
   const tid = session.user.id
   const admin = getAdmin()
 
+  console.log('[Overview] user.id:', tid)
+
   const [
-    { count: studentCount },
+    { count: studentCount, error: studentsError },
     { count: assignmentCount },
     { data: rawAssignments },
   ] = await Promise.all([
@@ -40,6 +42,8 @@ export default async function TeacherOverviewPage() {
     admin.from('assignments').select('id', { count: 'exact', head: true }).eq('teacher_id', tid),
     admin.from('assignments').select('id, title, category, deadline').eq('teacher_id', tid).order('created_at', { ascending: false }).limit(5),
   ])
+
+  console.log('[Overview] students result:', studentCount, studentsError)
 
   const assignments = rawAssignments ?? []
   const assignmentIds = assignments.map((a: { id: string }) => a.id)
